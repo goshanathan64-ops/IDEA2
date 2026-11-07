@@ -1,0 +1,45 @@
+
+name: Build IDEA2APK APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            git zip unzip openjdk-17-jdk \
+            autoconf automake libtool pkg-config \
+            zlib1g-dev libncurses5-dev libffi-dev \
+            libssl-dev cmake
+
+      - name: Install Buildozer
+        run: |
+          python -m pip install --upgrade pip
+          pip install buildozer==1.5.0 cython==0.29.33 virtualenv
+
+      - name: Build Android APK
+        run: buildozer android debug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: IDEA2APK-Android
+          path: bin/*.apk
+          if-no-files-found: error
