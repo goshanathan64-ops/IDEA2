@@ -29,13 +29,36 @@ jobs:
             zlib1g-dev libncurses5-dev libffi-dev \
             libssl-dev cmake
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android tools for Buildozer
+        run: |
+          SDK_ROOT="$HOME/.buildozer/android/platform/android-sdk"
+          mkdir -p "$SDK_ROOT"
+
+          yes | sdkmanager --sdk_root="$SDK_ROOT" --licenses
+
+          sdkmanager --sdk_root="$SDK_ROOT" \
+            "platform-tools" \
+            "platforms;android-34" \
+            "build-tools;34.0.0" \
+            "ndk;25.1.8937393"
+
+          yes | sdkmanager --sdk_root="$SDK_ROOT" --licenses
+
+          echo "ANDROIDSDK=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROIDNDK=$SDK_ROOT/ndk/25.1.8937393" >> "$GITHUB_ENV"
+
+          test -x "$SDK_ROOT/build-tools/34.0.0/aidl"
+
       - name: Install Buildozer
         run: |
           python -m pip install --upgrade pip
           pip install buildozer==1.5.0 cython==0.29.33 virtualenv
 
       - name: Build Android APK
-        run: yes|buildozer android debug
+        run: buildozer android debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -43,3 +66,4 @@ jobs:
           name: IDEA2APK-Android
           path: bin/*.apk
           if-no-files-found: error
+
