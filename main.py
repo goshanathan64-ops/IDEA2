@@ -1,14 +1,11 @@
 
-
 import os
 import json
 from datetime import datetime
 
 from kivy.app import App
 from kivy.lang import Builder
-from kivy.uix.screenmanager import ScreenManager, Screen
-from kivy.uix.button import Button
-from kivy.uix.label import Label
+from kivy.uix.screenmanager import Screen
 
 
 KV = """
@@ -71,7 +68,8 @@ ScreenManager:
         Label:
             id: result
             text: ""
-            size_hint_y: 0.3
+            size_hint_y: None
+            height: 130
 
         Button:
             text: "GENERATE BLUEPRINT & SAVE"
@@ -210,10 +208,14 @@ class Idea2APK(App):
         try:
             if os.path.exists(path):
                 with open(path, "r", encoding="utf-8") as file:
-                    self.projects = json.load(file)
+                    data = json.load(file)
 
-                if not isinstance(self.projects, list):
+                if isinstance(data, list):
+                    self.projects = data
+                else:
                     self.projects = []
+            else:
+                self.projects = []
 
         except (OSError, ValueError):
             self.projects = []
@@ -247,17 +249,19 @@ class Idea2APK(App):
         screen = self.root.get_screen("idea")
 
         if not name or not description:
-            screen.ids.result.text = "Enter your app name and description."
+            screen.ids.result.text = (
+                "Please enter your app name and description."
+            )
             return
 
         blueprint = (
-            "APP BLUEPRINT\\n\\n"
-            "Name: " + name + "\\n\\n"
-            "Description: " + description + "\\n\\n"
-            "NEXT STEPS:\\n"
-            "1. Design the interface\\n"
-            "2. Generate app code\\n"
-            "3. Test the application\\n"
+            "APP BLUEPRINT\n\n"
+            "Name: " + name + "\n\n"
+            "Description: " + description + "\n\n"
+            "NEXT STEPS:\n"
+            "1. Design the interface\n"
+            "2. Generate app code\n"
+            "3. Test the application\n"
             "4. Build Android APK"
         )
 
@@ -280,13 +284,11 @@ class Idea2APK(App):
 
         if self.save_projects():
             screen.ids.result.text = (
-                "SUCCESS!\\n\\n"
-                "Your project has been saved.\\n\\n"
-                + blueprint
+                "SUCCESS! YOUR PROJECT IS SAVED.\n\n" + blueprint
             )
         else:
             screen.ids.result.text = (
-                "Could not save the project. Please try again."
+                "ERROR: Could not save your project."
             )
 
     def show_projects(self):
@@ -297,24 +299,30 @@ class Idea2APK(App):
         project_list.clear_widgets()
 
         if not self.projects:
+            from kivy.uix.label import Label
+
             project_list.add_widget(
                 Label(
-                    text="No saved projects yet.\\nStart a new app!",
+                    text="No saved projects yet.\nStart a new app!",
                     size_hint_y=None,
                     height=100
                 )
             )
         else:
+            from kivy.uix.button import Button
+
             for index, project in enumerate(self.projects):
                 button = Button(
                     text=project.get("name", "Untitled Project"),
                     size_hint_y=None,
                     height=60
                 )
+
                 button.bind(
                     on_release=lambda instance, i=index:
                     self.open_project(i)
                 )
+
                 project_list.add_widget(button)
 
         self.root.current = "projects"
@@ -329,11 +337,11 @@ class Idea2APK(App):
         screen = self.root.get_screen("detail")
 
         screen.ids.detail_text.text = (
-            "APP NAME\\n"
-            + project.get("name", "") + "\\n\\n"
-            "DESCRIPTION\\n"
-            + project.get("description", "") + "\\n\\n"
-            "BLUEPRINT\\n"
+            "APP NAME\n"
+            + project.get("name", "") + "\n\n"
+            "DESCRIPTION\n"
+            + project.get("description", "") + "\n\n"
+            "BLUEPRINT\n"
             + project.get("blueprint", "")
         )
 
@@ -358,11 +366,15 @@ class Idea2APK(App):
             return
 
         self.projects.pop(self.selected_index)
+
         self.selected_index = None
         self.editing_index = None
 
-        self.save_projects()
-        self.show_projects()
+        if self.save_projects():
+            self.show_projects()
+        else:
+            self.load_projects()
+            self.show_projects()
 
 
 if __name__ == "__main__":
