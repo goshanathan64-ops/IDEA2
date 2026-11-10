@@ -1,54 +1,163 @@
 
 
 from kivy.app import App
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.label import Label
-from kivy.uix.button import Button
 from kivy.metrics import dp, sp
+from kivy.uix.screenmanager import ScreenManager, Screen
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.button import Button
+from kivy.uix.label import Label
 
 
-class IDEA2APKTest(App):
+class IDEA2APK(App):
 
     def build(self):
-        layout = BoxLayout(
-            orientation="vertical",
-            padding=dp(25),
-            spacing=dp(20)
+        self.title = "IDEA2APK"
+
+        self.manager = ScreenManager()
+
+        self.create_home_screen()
+        self.create_idea_screen()
+        self.create_projects_screen()
+
+        self.manager.current = "home"
+
+        return self.manager
+
+    def make_label(self, text, size=18):
+        return Label(
+            text=text,
+            font_size=sp(size),
+            halign="center",
+            valign="middle"
         )
 
-        heading = Label(
-            text="IDEA2APK",
-            font_size=sp(30),
-            bold=True
-        )
-
-        message = Label(
-            text="ANDROID STARTUP TEST\n\n"
-                 "If you can see this screen,\n"
-                 "Kivy has started successfully.",
-            font_size=sp(18),
-            halign="center"
-        )
-
+    def make_button(self, text, callback):
         button = Button(
-            text="TEST SUCCESSFUL",
-            font_size=sp(18),
+            text=text,
+            font_size=sp(17),
             size_hint_y=None,
             height=dp(60)
         )
+        button.bind(on_release=callback)
+        return button
 
-        button.bind(
-            on_release=lambda instance:
-            setattr(message, "text",
-                    "SUCCESS!\n\nIDEA2APK can respond to button presses.")
+    def create_home_screen(self):
+        screen = Screen(name="home")
+
+        layout = BoxLayout(
+            orientation="vertical",
+            padding=dp(25),
+            spacing=dp(18)
         )
 
-        layout.add_widget(heading)
-        layout.add_widget(message)
-        layout.add_widget(button)
+        heading = self.make_label("IDEA2APK", 32)
+        heading.bold = True
 
-        return layout
+        layout.add_widget(heading)
+
+        layout.add_widget(
+            self.make_label(
+                "Turn your ideas into Android apps",
+                17
+            )
+        )
+
+        layout.add_widget(
+            self.make_button(
+                "START NEW APP",
+                self.open_idea
+            )
+        )
+
+        layout.add_widget(
+            self.make_button(
+                "MY PROJECTS",
+                self.open_projects
+            )
+        )
+
+        layout.add_widget(
+            self.make_label(
+                "NEXGEN TECHNOLOGY",
+                13
+            )
+        )
+
+        screen.add_widget(layout)
+        self.manager.add_widget(screen)
+
+    def create_idea_screen(self):
+        screen = Screen(name="idea")
+
+        layout = BoxLayout(
+            orientation="vertical",
+            padding=dp(20),
+            spacing=dp(20)
+        )
+
+        layout.add_widget(
+            self.make_label("CREATE NEW APP", 25)
+        )
+
+        layout.add_widget(
+            self.make_label(
+                "Stage 1 is working!\n\n"
+                "The Smart App Planner will be added "
+                "in the next development stage.",
+                17
+            )
+        )
+
+        layout.add_widget(
+            self.make_button(
+                "BACK HOME",
+                self.go_home
+            )
+        )
+
+        screen.add_widget(layout)
+        self.manager.add_widget(screen)
+
+    def create_projects_screen(self):
+        screen = Screen(name="projects")
+
+        layout = BoxLayout(
+            orientation="vertical",
+            padding=dp(20),
+            spacing=dp(20)
+        )
+
+        layout.add_widget(
+            self.make_label("MY PROJECTS", 25)
+        )
+
+        layout.add_widget(
+            self.make_label(
+                "Your project library will be "
+                "activated in the next stage.",
+                17
+            )
+        )
+
+        layout.add_widget(
+            self.make_button(
+                "BACK HOME",
+                self.go_home
+            )
+        )
+
+        screen.add_widget(layout)
+        self.manager.add_widget(screen)
+
+    def open_idea(self, instance):
+        self.manager.current = "idea"
+
+    def open_projects(self, instance):
+        self.manager.current = "projects"
+
+    def go_home(self, instance):
+        self.manager.current = "home"
 
 
 if __name__ == "__main__":
-    IDEA2APKTest().run()
+    IDEA2APK().run()
