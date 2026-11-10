@@ -1,5 +1,7 @@
 
+
 import os
+import re
 import json
 import uuid
 
@@ -39,7 +41,6 @@ class IDEA2APK(App):
             if os.path.exists(self.storage_file):
                 with open(self.storage_file, "r") as file:
                     data = json.load(file)
-
                 if isinstance(data, list):
                     self.projects = data
         except (OSError, ValueError, TypeError):
@@ -48,15 +49,13 @@ class IDEA2APK(App):
     def save_projects(self):
         try:
             os.makedirs(self.user_data_dir, exist_ok=True)
+            temp = self.storage_file + ".tmp"
 
-            temp_file = self.storage_file + ".tmp"
-
-            with open(temp_file, "w") as file:
+            with open(temp, "w") as file:
                 json.dump(self.projects, file, indent=4)
 
-            os.replace(temp_file, self.storage_file)
+            os.replace(temp, self.storage_file)
             return True
-
         except (OSError, TypeError, ValueError):
             return False
 
@@ -139,7 +138,6 @@ class IDEA2APK(App):
             spacing=dp(12),
             size_hint_y=None
         )
-
         form.bind(minimum_height=form.setter("height"))
 
         self.app_name = TextInput(
@@ -163,7 +161,7 @@ class IDEA2APK(App):
         )
 
         self.features = TextInput(
-            hint_text="List your app features",
+            hint_text="List features separated by commas",
             size_hint_y=None,
             height=dp(100)
         )
@@ -174,12 +172,17 @@ class IDEA2APK(App):
         form.add_widget(self.features)
 
         form.add_widget(self.make_button(
-            "GENERATE / UPDATE BLUEPRINT",
+            "GENERATE BLUEPRINT",
             self.generate_blueprint
         ))
 
+        form.add_widget(self.make_button(
+            "GENERATE APP CODE",
+            self.generate_app_code
+        ))
+
         self.result = Label(
-            text="Your blueprint will appear here.",
+            text="Your results will appear here.",
             size_hint_y=None,
             halign="left",
             valign="top",
@@ -190,9 +193,18 @@ class IDEA2APK(App):
             texture_size=lambda instance, value:
             setattr(instance, "height", value[1] + dp(30))
         )
-
         self.result.text_size = (None, None)
         form.add_widget(self.result)
+
+        self.code_preview = TextInput(
+            hint_text="Generated Python code appears here",
+            readonly=True,
+            multiline=True,
+            size_hint_y=None,
+            height=dp(300),
+            font_size=sp(11)
+        )
+        form.add_widget(self.code_preview)
 
         scroll.add_widget(form)
         root.add_widget(scroll)
@@ -205,61 +217,165 @@ class IDEA2APK(App):
         screen.add_widget(root)
         self.manager.add_widget(screen)
 
-    def generate_blueprint(self, instance):
-
+    def get_project(self):
         name = self.app_name.text.strip()
         description = self.description.text.strip()
         target = self.target.text.strip()
         features = self.features.text.strip()
 
         if not name or not description:
-            self.result.text = (
-                "Please enter an app name and description."
-            )
-            return
+            return None
 
-        blueprint = (
-            f"APP BLUEPRINT: {name}\n\n"
-            f"DESCRIPTION:\n{description}\n\n"
-            f"TARGET USERS:\n{target or 'Not specified'}\n\n"
-            f"MAIN FEATURES:\n{features or 'To be decided'}\n\n"
-            "DEVELOPMENT PLAN:\n"
-            "1. Design the app interface.\n"
-            "2. Create the app screens.\n"
-            "3. Generate application code.\n"
-            "4. Test the application.\n"
-            "5. Build the Android APK.\n"
-            "6. Prepare the app for release.\n\n"
-            "POWERED BY IDEA2APK - NEXGEN"
-        )
-
-        project = {
+        return {
             "id": self.editing_id or uuid.uuid4().hex,
             "name": name,
             "description": description,
             "target": target,
-            "features": features,
-            "blueprint": blueprint
+            "features": features
         }
 
-        if self.editing_id:
-            for i, old in enumerate(self.projects):
-                if old["id"] == self.editing_id:
-                    self.projects[i] = project
-                    break
-        else:
+    def generate_blueprint(self, instance):
+        project = self.get_project()
+
+        if not project:
+            self.result.text = "Enter an app name and description."
+            return
+
+        blueprint = (
+            f"APP BLUEPRINT: {project['name']}\n\n"
+            f"DESCRIPTION:\n{project['description']}\n\n"
+            f"TARGET USERS:\n{project['target']}\n\n"
+            f"FEATURES:\n{project['features']}\n\n"
+            "DEVELOPMENT PLAN:\n"
+            "1. Design the interface.\n"
+            "2. Create app screens.\n"
+            "3. Generate source code.\n"
+            "4. Test the app.\n"
+            "5. Build Android APK.\n"
+            "6. Prepare for release."
+        )
+
+        self.store_project(project, blueprint=blueprint)
+        self.result.text = blueprint
+
+    def generate_app_code(self, instance):
+        project = self.get_project()
+
+        if not project:
+            self.result.text = "Enter an app name and description."
+            return
+
+        features = [
+            item.strip()
+            for item in re.split(
+                r"[,;\n]", project["features"]
+            )
+            if item.strip()
+        ]
+
+        source = "\n".join([
+            "from kivy.app import App",
+            "from kivy.uix.boxlayout import BoxLayout",
+            "from kivy.uix.label import Label",
+            "from kivy.uix.button import Button",
+            "from kivy.metrics import dp, sp",
+            "",
+            f"APP_NAME = {project['name']!r}",
+            f"DESCRIPTION = {project['description']!r}",
+            f"FEATURES = {features!r}",
+            "",
+            "class GeneratedApp(App):",
+            "    def build(self):",
+            "        self.title = APP_NAME",
+            "        layout = BoxLayout(",
+            "            orientation='vertical',",
+            "            padding=dp(20),",
+            "            spacing=dp(12)",
+            "        )",
+            "",
+            "        layout.add_widget(Label(",
+            "            text=APP_NAME,",
+            "            font_size=sp(28),",
+            "            size_hint_y=None,",
+            "            height=dp(65)",
+            "        ))",
+            "",
+            "        layout.add_widget(Label(",
+            "            text=DESCRIPTION,",
+            "            size_hint_y=None,",
+            "            height=dp(90)",
+            "        ))",
+            "",
+            "        for feature in FEATURES:",
+            "            layout.add_widget(Button(",
+            "                text=feature,",
+            "                size_hint_y=None,",
+            "                height=dp(50)",
+            "            ))",
+            "",
+            "        return layout",
+            "",
+            "if __name__ == '__main__':",
+            "    GeneratedApp().run()",
+            ""
+        ])
+
+        project["generated_code"] = source
+        self.store_project(project)
+
+        safe_name = re.sub(
+            r"[^A-Za-z0-9_-]+",
+            "_",
+            project["name"]
+        ).strip("_") or "GeneratedApp"
+
+        code_folder = os.path.join(
+            self.user_data_dir, "generated_apps"
+        )
+
+        try:
+            os.makedirs(code_folder, exist_ok=True)
+
+            code_file = os.path.join(
+                code_folder, safe_name + "_main.py"
+            )
+
+            with open(code_file, "w") as file:
+                file.write(source)
+
+            self.code_preview.text = source
+
+            self.result.text = (
+                "APP CODE GENERATED SUCCESSFULLY!\n\n"
+                "Python/Kivy starter code saved.\n"
+                "Location: " + code_file
+            )
+
+        except OSError as error:
+            self.result.text = (
+                "Code generated but file saving failed: "
+                + str(error)
+            )
+
+    def store_project(self, project, blueprint=None):
+        if blueprint is not None:
+            project["blueprint"] = blueprint
+
+        found = False
+
+        for i, old in enumerate(self.projects):
+            if old["id"] == project["id"]:
+                self.projects[i].update(project)
+                found = True
+                break
+
+        if not found:
             self.projects.append(project)
 
         self.editing_id = project["id"]
 
-        if self.save_projects():
-            self.result.text = (
-                blueprint + "\n\nPROJECT SAVED SUCCESSFULLY!"
-            )
-        else:
-            self.result.text = (
-                blueprint + "\n\nSTORAGE ERROR: Could not save."
-            )
+        if not self.save_projects():
+            self.result.text = "Could not save project."
 
     def create_projects(self):
         screen = Screen(name="projects")
@@ -285,7 +401,6 @@ class IDEA2APK(App):
             spacing=dp(10),
             size_hint_y=None
         )
-
         self.project_list.bind(
             minimum_height=self.project_list.setter("height")
         )
@@ -302,7 +417,6 @@ class IDEA2APK(App):
         self.manager.add_widget(screen)
 
     def update_projects(self):
-
         self.project_list.clear_widgets()
 
         if not self.projects:
@@ -314,7 +428,6 @@ class IDEA2APK(App):
             return
 
         for project in self.projects:
-
             row = BoxLayout(
                 orientation="horizontal",
                 size_hint_y=None,
@@ -322,10 +435,10 @@ class IDEA2APK(App):
                 spacing=dp(5)
             )
 
-            name = Label(
+            row.add_widget(Label(
                 text=project.get("name", "Unnamed"),
                 font_size=sp(13)
-            )
+            ))
 
             open_btn = Button(
                 text="OPEN",
@@ -338,23 +451,18 @@ class IDEA2APK(App):
 
             delete_btn = Button(
                 text="DELETE",
-                size_hint_x=0.35,
-                background_normal="",
-                background_color=(0.8, 0.15, 0.15, 1)
+                size_hint_x=0.35
             )
             delete_btn.bind(
                 on_release=lambda btn, p=project:
                 self.delete_project(p)
             )
 
-            row.add_widget(name)
             row.add_widget(open_btn)
             row.add_widget(delete_btn)
-
             self.project_list.add_widget(row)
 
     def edit_project(self, project):
-
         self.editing_id = project["id"]
 
         self.app_name.text = project.get("name", "")
@@ -363,13 +471,16 @@ class IDEA2APK(App):
         self.features.text = project.get("features", "")
 
         self.result.text = project.get(
-            "blueprint", "Edit your project and generate an update."
+            "blueprint", "Project opened."
+        )
+
+        self.code_preview.text = project.get(
+            "generated_code", ""
         )
 
         self.manager.current = "planner"
 
     def delete_project(self, project):
-
         self.projects = [
             p for p in self.projects
             if p["id"] != project["id"]
@@ -386,7 +497,8 @@ class IDEA2APK(App):
         self.target.text = ""
         self.features.text = ""
 
-        self.result.text = "Your blueprint will appear here."
+        self.result.text = "Your results will appear here."
+        self.code_preview.text = ""
 
         self.manager.current = "planner"
 
