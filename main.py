@@ -1,4 +1,8 @@
 
+import os
+import json
+import uuid
+
 from kivy.app import App
 from kivy.metrics import dp, sp
 from kivy.uix.screenmanager import ScreenManager, Screen
@@ -14,6 +18,13 @@ class IDEA2APK(App):
     def build(self):
         self.title = "IDEA2APK"
         self.projects = []
+        self.editing_id = None
+
+        self.storage_file = os.path.join(
+            self.user_data_dir, "projects.json"
+        )
+
+        self.load_projects()
 
         self.manager = ScreenManager()
 
@@ -23,12 +34,38 @@ class IDEA2APK(App):
 
         return self.manager
 
+    def load_projects(self):
+        try:
+            if os.path.exists(self.storage_file):
+                with open(self.storage_file, "r") as file:
+                    data = json.load(file)
+
+                if isinstance(data, list):
+                    self.projects = data
+        except (OSError, ValueError, TypeError):
+            self.projects = []
+
+    def save_projects(self):
+        try:
+            os.makedirs(self.user_data_dir, exist_ok=True)
+
+            temp_file = self.storage_file + ".tmp"
+
+            with open(temp_file, "w") as file:
+                json.dump(self.projects, file, indent=4)
+
+            os.replace(temp_file, self.storage_file)
+            return True
+
+        except (OSError, TypeError, ValueError):
+            return False
+
     def make_button(self, text, callback):
         btn = Button(
             text=text,
             size_hint_y=None,
             height=dp(55),
-            font_size=sp(16),
+            font_size=sp(15),
             background_normal="",
             background_color=(0.1, 0.55, 0.8, 1)
         )
@@ -37,6 +74,7 @@ class IDEA2APK(App):
 
     def create_home(self):
         screen = Screen(name="home")
+
         layout = BoxLayout(
             orientation="vertical",
             padding=dp(20),
@@ -89,7 +127,7 @@ class IDEA2APK(App):
         root.add_widget(Label(
             text="[b]SMART APP PLANNER[/b]",
             markup=True,
-            font_size=sp(24),
+            font_size=sp(23),
             size_hint_y=None,
             height=dp(55)
         ))
@@ -101,6 +139,7 @@ class IDEA2APK(App):
             spacing=dp(12),
             size_hint_y=None
         )
+
         form.bind(minimum_height=form.setter("height"))
 
         self.app_name = TextInput(
@@ -113,7 +152,7 @@ class IDEA2APK(App):
         self.description = TextInput(
             hint_text="Describe what your app should do",
             size_hint_y=None,
-            height=dp(120)
+            height=dp(110)
         )
 
         self.target = TextInput(
@@ -135,23 +174,24 @@ class IDEA2APK(App):
         form.add_widget(self.features)
 
         form.add_widget(self.make_button(
-            "GENERATE BLUEPRINT",
+            "GENERATE / UPDATE BLUEPRINT",
             self.generate_blueprint
         ))
 
         self.result = Label(
-            text="Your app blueprint will appear here.",
+            text="Your blueprint will appear here.",
             size_hint_y=None,
             halign="left",
             valign="top",
-            font_size=sp(15)
+            font_size=sp(14)
         )
+
         self.result.bind(
             texture_size=lambda instance, value:
             setattr(instance, "height", value[1] + dp(30))
         )
-        self.result.text_size = (None, None)
 
+        self.result.text_size = (None, None)
         form.add_widget(self.result)
 
         scroll.add_widget(form)
@@ -181,10 +221,8 @@ class IDEA2APK(App):
         blueprint = (
             f"APP BLUEPRINT: {name}\n\n"
             f"DESCRIPTION:\n{description}\n\n"
-            f"TARGET USERS:\n"
-            f"{target or 'Not specified'}\n\n"
-            f"MAIN FEATURES:\n"
-            f"{features or 'To be decided'}\n\n"
+            f"TARGET USERS:\n{target or 'Not specified'}\n\n"
+            f"MAIN FEATURES:\n{features or 'To be decided'}\n\n"
             "DEVELOPMENT PLAN:\n"
             "1. Design the app interface.\n"
             "2. Create the app screens.\n"
@@ -195,12 +233,33 @@ class IDEA2APK(App):
             "POWERED BY IDEA2APK - NEXGEN"
         )
 
-        self.result.text = blueprint
-
-        self.projects.append({
+        project = {
+            "id": self.editing_id or uuid.uuid4().hex,
             "name": name,
+            "description": description,
+            "target": target,
+            "features": features,
             "blueprint": blueprint
-        })
+        }
+
+        if self.editing_id:
+            for i, old in enumerate(self.projects):
+                if old["id"] == self.editing_id:
+                    self.projects[i] = project
+                    break
+        else:
+            self.projects.append(project)
+
+        self.editing_id = project["id"]
+
+        if self.save_projects():
+            self.result.text = (
+                blueprint + "\n\nPROJECT SAVED SUCCESSFULLY!"
+            )
+        else:
+            self.result.text = (
+                blueprint + "\n\nSTORAGE ERROR: Could not save."
+            )
 
     def create_projects(self):
         screen = Screen(name="projects")
@@ -212,25 +271,25 @@ class IDEA2APK(App):
         )
 
         layout.add_widget(Label(
-            text="[b]MY PROJECTS[/b]",
+            text="[b]MY SAVED PROJECTS[/b]",
             markup=True,
-            font_size=sp(25),
+            font_size=sp(24),
             size_hint_y=None,
-            height=dp(60)
+            height=dp(55)
         ))
 
-        self.project_list = Label(
-            text="No projects generated yet.",
-            halign="left",
-            valign="top"
+        scroll = ScrollView()
+
+        self.project_list = BoxLayout(
+            orientation="vertical",
+            spacing=dp(10),
+            size_hint_y=None
         )
 
         self.project_list.bind(
-            size=lambda instance, value:
-            setattr(instance, "text_size", value)
+            minimum_height=self.project_list.setter("height")
         )
 
-        scroll = ScrollView()
         scroll.add_widget(self.project_list)
         layout.add_widget(scroll)
 
@@ -242,22 +301,98 @@ class IDEA2APK(App):
         screen.add_widget(layout)
         self.manager.add_widget(screen)
 
+    def update_projects(self):
+
+        self.project_list.clear_widgets()
+
+        if not self.projects:
+            self.project_list.add_widget(Label(
+                text="No saved projects yet.",
+                size_hint_y=None,
+                height=dp(60)
+            ))
+            return
+
+        for project in self.projects:
+
+            row = BoxLayout(
+                orientation="horizontal",
+                size_hint_y=None,
+                height=dp(55),
+                spacing=dp(5)
+            )
+
+            name = Label(
+                text=project.get("name", "Unnamed"),
+                font_size=sp(13)
+            )
+
+            open_btn = Button(
+                text="OPEN",
+                size_hint_x=0.35
+            )
+            open_btn.bind(
+                on_release=lambda btn, p=project:
+                self.edit_project(p)
+            )
+
+            delete_btn = Button(
+                text="DELETE",
+                size_hint_x=0.35,
+                background_normal="",
+                background_color=(0.8, 0.15, 0.15, 1)
+            )
+            delete_btn.bind(
+                on_release=lambda btn, p=project:
+                self.delete_project(p)
+            )
+
+            row.add_widget(name)
+            row.add_widget(open_btn)
+            row.add_widget(delete_btn)
+
+            self.project_list.add_widget(row)
+
+    def edit_project(self, project):
+
+        self.editing_id = project["id"]
+
+        self.app_name.text = project.get("name", "")
+        self.description.text = project.get("description", "")
+        self.target.text = project.get("target", "")
+        self.features.text = project.get("features", "")
+
+        self.result.text = project.get(
+            "blueprint", "Edit your project and generate an update."
+        )
+
+        self.manager.current = "planner"
+
+    def delete_project(self, project):
+
+        self.projects = [
+            p for p in self.projects
+            if p["id"] != project["id"]
+        ]
+
+        self.save_projects()
+        self.update_projects()
+
     def open_planner(self):
+        self.editing_id = None
+
+        self.app_name.text = ""
+        self.description.text = ""
+        self.target.text = ""
+        self.features.text = ""
+
+        self.result.text = "Your blueprint will appear here."
+
         self.manager.current = "planner"
 
     def open_projects(self):
         self.update_projects()
         self.manager.current = "projects"
-
-    def update_projects(self):
-        if not self.projects:
-            self.project_list.text = "No projects generated yet."
-            return
-
-        self.project_list.text = "\n\n".join(
-            f"PROJECT {i + 1}: {p['name']}"
-            for i, p in enumerate(self.projects)
-        )
 
     def go_home(self):
         self.manager.current = "home"
@@ -265,5 +400,3 @@ class IDEA2APK(App):
 
 if __name__ == "__main__":
     IDEA2APK().run()
-
-
