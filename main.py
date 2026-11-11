@@ -4,9 +4,13 @@ import re
 import json
 import uuid
 import zipfile
+import shutil
 
 from kivy.app import App
 from kivy.metrics import dp, sp
+from kivy.core.clipboard import Clipboard
+from kivy.utils import platform
+
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
@@ -77,6 +81,41 @@ class IDEA2APK(App):
 
         btn.bind(on_release=callback)
         return btn
+
+    def show_message(self, title, message):
+        content = BoxLayout(
+            orientation="vertical",
+            padding=dp(12),
+            spacing=dp(10)
+        )
+
+        label = Label(
+            text=message,
+            halign="left",
+            valign="middle"
+        )
+        label.bind(
+            size=lambda instance, value:
+            setattr(instance, "text_size", value)
+        )
+
+        close_btn = Button(
+            text="OK",
+            size_hint_y=None,
+            height=dp(48)
+        )
+
+        content.add_widget(label)
+        content.add_widget(close_btn)
+
+        popup = Popup(
+            title=title,
+            content=content,
+            size_hint=(0.9, 0.55)
+        )
+
+        close_btn.bind(on_release=popup.dismiss)
+        popup.open()
 
     def create_home(self):
         screen = Screen(name="home")
@@ -224,7 +263,6 @@ class IDEA2APK(App):
         )
 
         self.result.text_size = (None, None)
-
         form.add_widget(self.result)
 
         self.code_preview = TextInput(
@@ -237,6 +275,23 @@ class IDEA2APK(App):
         )
 
         form.add_widget(self.code_preview)
+
+        # NEW STAGE 4 FEATURES
+
+        form.add_widget(self.make_button(
+            "EXPORT PROJECT ZIP",
+            self.export_project_zip
+        ))
+
+        form.add_widget(self.make_button(
+            "SHARE GENERATED CODE (COPY)",
+            self.copy_generated_code
+        ))
+
+        form.add_widget(self.make_button(
+            "PREPARE APK BUILD",
+            self.prepare_apk_build
+        ))
 
         scroll.add_widget(form)
         root.add_widget(scroll)
@@ -329,12 +384,10 @@ class IDEA2APK(App):
             f"APP_TYPE = {project['app_type']!r}",
             f"FEATURES = {features!r}",
             "",
-            "",
             "class GeneratedApp(App):",
             "",
             "    def build(self):",
             "        self.title = APP_NAME",
-            "",
             "        layout = BoxLayout(",
             "            orientation='vertical',",
             "            padding=dp(20),",
@@ -378,14 +431,12 @@ class IDEA2APK(App):
             "        content = Label(",
             "            text='Welcome to ' + feature",
             "        )",
-            "",
             "        popup = Popup(",
             "            title=feature,",
             "            content=content,",
             "            size_hint=(0.85, 0.4)",
             "        )",
             "        popup.open()",
-            "",
             "",
             "if __name__ == '__main__':",
             "    GeneratedApp().run()",
@@ -410,12 +461,10 @@ class IDEA2APK(App):
         )
 
         try:
-
             os.makedirs(code_folder, exist_ok=True)
 
             code_file = os.path.join(
-                code_folder,
-                "main.py"
+                code_folder, "main.py"
             )
 
             with open(code_file, "w") as file:
@@ -445,8 +494,7 @@ class IDEA2APK(App):
             ])
 
             spec_file = os.path.join(
-                code_folder,
-                "buildozer.spec"
+                code_folder, "buildozer.spec"
             )
 
             with open(spec_file, "w") as file:
@@ -464,18 +512,12 @@ class IDEA2APK(App):
                 zipfile.ZIP_DEFLATED
             ) as archive:
 
-                archive.write(
-                    code_file,
-                    "main.py"
-                )
-
-                archive.write(
-                    spec_file,
-                    "buildozer.spec"
-                )
+                archive.write(code_file, "main.py")
+                archive.write(spec_file, "buildozer.spec")
 
             project["generated_code"] = source
             project["zip_path"] = zip_file
+            project["code_folder"] = code_folder
 
             self.store_project(project)
 
@@ -487,16 +529,243 @@ class IDEA2APK(App):
                 "1. main.py\n"
                 "2. buildozer.spec\n"
                 "3. Project ZIP package\n\n"
-                "Project package saved at:\n"
-                + zip_file
+                "Use the new export button to copy the ZIP "
+                "to your Downloads folder."
             )
 
         except (OSError, ValueError, zipfile.BadZipFile) as error:
 
             self.result.text = (
-                "Generation or saving failed:\n"
-                + str(error)
+                "Generation or saving failed:\n" + str(error)
             )
+
+    # NEW FEATURE 1: EXPORT PROJECT ZIP
+
+    def export_project_zip(self, instance):
+
+        project = self.get_project()
+
+        if not project:
+            self.show_message(
+                "Missing information",
+                "Enter an app name and description first."
+            )
+            return
+
+        saved = self.find_saved_project(project["id"])
+
+        if saved:
+            project.update(saved)
+
+        zip_path = project.get("zip_path", "")
+
+        if not zip_path or not os.path.exists(zip_path):
+            self.show_message(
+                "ZIP not found",
+                "First tap GENERATE APP CODE, then try exporting."
+            )
+            return
+
+        try:
+            if platform == "android":
+                from android.permissions import (
+                    Permission,
+                    check_permission,
+                    request_permissions
+                )
+                from android.storage import primary_external_storage_path
+
+                if not check_permission(
+                    Permission.WRITE_EXTERNAL_STORAGE
+                ):
+                    request_permissions([
+                        Permission.WRITE_EXTERNAL_STORAGE
+                    ])
+
+                    self.show_message(
+                        "Storage permission",
+                        "Allow storage access when Android asks. "
+                        "Then tap EXPORT PROJECT ZIP again."
+                    )
+                    return
+
+                destination = os.path.join(
+                    primary_external_storage_path(),
+                    "Download",
+                    "IDEA2APK"
+                )
+
+            else:
+                destination = os.path.join(
+                    self.user_data_dir,
+                    "Exports"
+                )
+
+            os.makedirs(destination, exist_ok=True)
+
+            filename = os.path.basename(zip_path)
+            export_path = os.path.join(destination, filename)
+
+            shutil.copy2(zip_path, export_path)
+
+            self.show_message(
+                "Export successful",
+                "Your project ZIP was exported to:\n\n"
+                + export_path
+            )
+
+        except Exception as error:
+            self.show_message(
+                "Export failed",
+                str(error)
+            )
+
+    # NEW FEATURE 2: COPY GENERATED CODE
+
+    def copy_generated_code(self, instance):
+
+        code = self.code_preview.text.strip()
+
+        if not code:
+            project = self.get_project()
+
+            if project:
+                saved = self.find_saved_project(project["id"])
+
+                if saved:
+                    code = saved.get("generated_code", "")
+
+        if not code:
+            self.show_message(
+                "No generated code",
+                "Generate app code first."
+            )
+            return
+
+        try:
+            Clipboard.copy(code)
+
+            self.show_message(
+                "Code copied",
+                "Your generated Python code has been copied "
+                "to the clipboard. You can paste it into "
+                "another editor or message."
+            )
+
+        except Exception as error:
+            self.show_message(
+                "Copy failed",
+                str(error)
+            )
+
+    # NEW FEATURE 3: PREPARE APK BUILD
+
+    def prepare_apk_build(self, instance):
+
+        project = self.get_project()
+
+        if not project:
+            self.show_message(
+                "Missing information",
+                "Enter an app name and description first."
+            )
+            return
+
+        saved = self.find_saved_project(project["id"])
+
+        if saved:
+            project.update(saved)
+
+        zip_path = project.get("zip_path", "")
+        code_folder = project.get("code_folder", "")
+
+        if (
+            not zip_path
+            or not os.path.exists(zip_path)
+            or not code_folder
+        ):
+            self.show_message(
+                "Generate code first",
+                "Tap GENERATE APP CODE before preparing "
+                "the APK build."
+            )
+            return
+
+        try:
+            readme = (
+                "IDEA2APK PROJECT\n\n"
+                "PROJECT: " + project["name"] + "\n\n"
+                "BUILD INSTRUCTIONS:\n"
+                "1. Extract this ZIP file.\n"
+                "2. Upload the project files to GitHub.\n"
+                "3. Open your GitHub Actions workflow.\n"
+                "4. Run the Buildozer Android build.\n"
+                "5. Download the generated APK artifact.\n\n"
+                "IMPORTANT:\n"
+                "This package contains source files. "
+                "It is not an APK yet.\n"
+            )
+
+            readme_path = os.path.join(
+                code_folder, "README_BUILD.txt"
+            )
+
+            with open(readme_path, "w") as file:
+                file.write(readme)
+
+            with zipfile.ZipFile(
+                zip_path,
+                "w",
+                zipfile.ZIP_DEFLATED
+            ) as archive:
+
+                archive.write(
+                    os.path.join(code_folder, "main.py"),
+                    "main.py"
+                )
+
+                archive.write(
+                    os.path.join(code_folder, "buildozer.spec"),
+                    "buildozer.spec"
+                )
+
+                archive.write(
+                    readme_path,
+                    "README_BUILD.txt"
+                )
+
+            project["zip_path"] = zip_path
+            project["code_folder"] = code_folder
+            self.store_project(project)
+
+            self.show_message(
+                "APK build prepared",
+                "Your project package is ready!\n\n"
+                "It contains:\n"
+                "1. main.py\n"
+                "2. buildozer.spec\n"
+                "3. README_BUILD.txt\n\n"
+                "Next:\n"
+                "Tap EXPORT PROJECT ZIP.\n"
+                "Upload the ZIP contents to GitHub.\n"
+                "Run your Buildozer workflow in GitHub Actions.\n\n"
+                "IDEA2APK prepares the source files. "
+                "GitHub Actions compiles the APK."
+            )
+
+        except Exception as error:
+            self.show_message(
+                "Preparation failed",
+                str(error)
+            )
+
+    def find_saved_project(self, project_id):
+
+        for project in self.projects:
+            if project.get("id") == project_id:
+                return project
+
+        return None
 
     def store_project(self, project, blueprint=None):
 
@@ -506,7 +775,6 @@ class IDEA2APK(App):
         found = False
 
         for old in self.projects:
-
             if old["id"] == project["id"]:
                 old.update(project)
                 found = True
