@@ -1,5 +1,4 @@
 
-
 import os
 import re
 import json
@@ -11,6 +10,7 @@ from kivy.app import App
 from kivy.metrics import dp, sp
 from kivy.core.clipboard import Clipboard
 from kivy.utils import platform
+from kivy.clock import Clock
 
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.uix.boxlayout import BoxLayout
@@ -151,9 +151,7 @@ class IDEA2APK(App):
             size_hint_y=None
         )
 
-        form.bind(
-            minimum_height=form.setter("height")
-        )
+        form.bind(minimum_height=form.setter("height"))
 
         form.add_widget(self.make_label("App name"))
 
@@ -463,20 +461,9 @@ if __name__ == "__main__":
                 '        self.add_feature("Welcome to your app")'
             )
 
-        code = code.replace(
-            "APP_NAME",
-            repr(app_name)
-        )
-
-        code = code.replace(
-            "APP_DESCRIPTION",
-            repr(description)
-        )
-
-        code = code.replace(
-            "        FEATURES",
-            feature_code
-        )
+        code = code.replace("APP_NAME", repr(app_name))
+        code = code.replace("APP_DESCRIPTION", repr(description))
+        code = code.replace("        FEATURES", feature_code)
 
         self.generated_code = code
         self.current_project = data
@@ -494,7 +481,6 @@ if __name__ == "__main__":
                     encoding="utf-8"
                 ) as file:
                     return json.load(file)
-
         except Exception:
             pass
 
@@ -644,7 +630,7 @@ warn_on_root = 1
             package=package_name
         )
 
-    # STAGE 5: EXPORT ZIP
+    # STAGE 5: ZIP EXPORT
 
     def export_project_zip(self, *args):
         if not self.generated_code:
@@ -664,6 +650,9 @@ warn_on_root = 1
                 "_",
                 data["name"]
             )
+
+            if not folder_name:
+                folder_name = "MyBusiness"
 
             zip_path = os.path.join(
                 EXPORT_DIR,
@@ -692,11 +681,15 @@ warn_on_root = 1
                     self.create_buildozer_spec(data)
                 )
 
+            if not os.path.exists(zip_path):
+                self.message("ZIP file could not be created.")
+                return
+
             self.copy_zip_to_downloads(zip_path)
 
         except Exception as error:
             self.message(
-                "ZIP export failed: " + str(error)
+                "ZIP export failed:\n" + str(error)
             )
 
     def copy_zip_to_downloads(self, zip_path):
@@ -705,32 +698,36 @@ warn_on_root = 1
             return
 
         try:
-            from android.permissions import (
-                request_permissions,
-                Permission
-            )
+            from android.permissions import request_permissions
 
             request_permissions(
-                [Permission.WRITE_EXTERNAL_STORAGE],
+                ["android.permission.WRITE_EXTERNAL_STORAGE"],
                 lambda permissions, grants:
-                    self.finish_zip_copy(zip_path, grants)
+                    Clock.schedule_once(
+                        lambda dt: self.finish_zip_copy(
+                            zip_path,
+                            grants
+                        ),
+                        0
+                    )
             )
 
         except Exception as error:
             self.message(
-                "Storage permission error: " + str(error)
+                "Storage permission request failed:\n" + str(error)
             )
 
     def finish_zip_copy(self, zip_path, grants):
         try:
             if not grants or not grants[0]:
                 self.message(
-                    "Storage permission denied. "
-                    "Please allow storage access."
+                    "Storage permission denied.\n\n"
+                    "Allow storage permission in Android settings."
                 )
                 return
 
             downloads = "/storage/emulated/0/Download"
+
             os.makedirs(downloads, exist_ok=True)
 
             destination = os.path.join(
@@ -739,6 +736,10 @@ warn_on_root = 1
             )
 
             shutil.copy2(zip_path, destination)
+
+            if not os.path.exists(destination):
+                self.message("ZIP copy could not be verified.")
+                return
 
             self.message(
                 "SUCCESS!\n\n"
@@ -749,10 +750,10 @@ warn_on_root = 1
 
         except Exception as error:
             self.message(
-                "Could not copy ZIP: " + str(error)
+                "Could not copy ZIP:\n" + str(error)
             )
 
-    # COPY CODE
+    # COPY GENERATED CODE
 
     def copy_generated_code(self, *args):
         if not self.generated_code:
@@ -818,7 +819,7 @@ warn_on_root = 1
 
         except Exception as error:
             self.message(
-                "Preparation failed: " + str(error)
+                "Preparation failed:\n" + str(error)
             )
 
     # ABOUT AND NAVIGATION
