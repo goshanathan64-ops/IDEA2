@@ -618,6 +618,7 @@ fullscreen = 0
 android.api = 34
 android.minapi = 21
 android.ndk = 25b
+android.build_tools_version = 34.0.0
 android.accept_sdk_license = True
 android.archs = arm64-v8a, armeabi-v7a
 android.permissions = READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE
@@ -692,21 +693,35 @@ warn_on_root = 1
                 "ZIP export failed:\n" + str(error)
             )
 
+    # ANDROID STORAGE PERMISSION FIX
+
     def copy_zip_to_downloads(self, zip_path):
         if platform != "android":
             self.message("ZIP saved at:\n" + zip_path)
             return
 
         try:
-            from android.permissions import request_permissions
+            from android.permissions import (
+                request_permissions,
+                check_permission,
+                Permission
+            )
 
+            storage_permission = Permission.WRITE_EXTERNAL_STORAGE
+
+            # Check whether permission is already granted.
+            if check_permission(storage_permission):
+                self.finish_zip_copy(zip_path, True)
+                return
+
+            # Request permission from Android.
             request_permissions(
-                ["android.permission.WRITE_EXTERNAL_STORAGE"],
+                [storage_permission],
                 lambda permissions, grants:
                     Clock.schedule_once(
                         lambda dt: self.finish_zip_copy(
                             zip_path,
-                            grants
+                            bool(grants and grants[0])
                         ),
                         0
                     )
@@ -714,21 +729,24 @@ warn_on_root = 1
 
         except Exception as error:
             self.message(
-                "Storage permission request failed:\n" + str(error)
+                "Storage permission request failed:\n"
+                + str(error)
             )
 
-    def finish_zip_copy(self, zip_path, grants):
+    def finish_zip_copy(self, zip_path, granted):
         try:
-            if not grants or not grants[0]:
+            if not granted:
                 self.message(
-                    "Storage permission denied.\n\n"
-                    "Allow storage permission in Android settings."
+                    "STORAGE PERMISSION DENIED\n\n"
+                    "Open Settings > Apps > IDEA2APK "
+                    "> Permissions and allow Storage."
                 )
                 return
 
             downloads = "/storage/emulated/0/Download"
 
-            os.makedirs(downloads, exist_ok=True)
+            if not os.path.isdir(downloads):
+                os.makedirs(downloads, exist_ok=True)
 
             destination = os.path.join(
                 downloads,
@@ -737,16 +755,17 @@ warn_on_root = 1
 
             shutil.copy2(zip_path, destination)
 
-            if not os.path.exists(destination):
-                self.message("ZIP copy could not be verified.")
-                return
-
-            self.message(
-                "SUCCESS!\n\n"
-                "Your project ZIP is in:\n"
-                "Phone Storage / Download\n\n"
-                + os.path.basename(destination)
-            )
+            if os.path.isfile(destination):
+                self.message(
+                    "SUCCESS!\n\n"
+                    "Your project ZIP is in:\n"
+                    "Phone Storage / Download\n\n"
+                    + os.path.basename(destination)
+                )
+            else:
+                self.message(
+                    "ZIP copy could not be verified."
+                )
 
         except Exception as error:
             self.message(
