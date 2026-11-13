@@ -50,10 +50,6 @@ jobs:
             cython==0.29.33 \
             virtualenv
 
-      - name: Clean Android build
-        run: |
-          buildozer android clean
-
       - name: Build Android APK
         run: |
           buildozer -v android debug
@@ -64,5 +60,4 @@ jobs:
           name: IDEA2APK-Android
           path: bin/*.apk
           if-no-files-found: error
-
 
