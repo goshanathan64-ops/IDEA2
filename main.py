@@ -1,4 +1,5 @@
 
+
 import os
 import re
 import json
@@ -13,7 +14,6 @@ from kivy.utils import platform
 
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.gridlayout import GridLayout
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.label import Label
 from kivy.uix.button import Button
@@ -41,10 +41,13 @@ class IDEA2APK(App):
         self.projects_screen = Screen(name="projects")
         self.result_screen = Screen(name="result")
 
-        self.manager.add_widget(self.home_screen)
-        self.manager.add_widget(self.planner_screen)
-        self.manager.add_widget(self.projects_screen)
-        self.manager.add_widget(self.result_screen)
+        for screen in [
+            self.home_screen,
+            self.planner_screen,
+            self.projects_screen,
+            self.result_screen
+        ]:
+            self.manager.add_widget(screen)
 
         self.create_home_screen()
         self.create_planner_screen()
@@ -82,6 +85,8 @@ class IDEA2APK(App):
             font_size=sp(15),
             padding=dp(10)
         )
+
+    # HOME SCREEN
 
     def create_home_screen(self):
         layout = BoxLayout(
@@ -125,6 +130,8 @@ class IDEA2APK(App):
 
         self.home_screen.add_widget(layout)
 
+    # PLANNER SCREEN
+
     def create_planner_screen(self):
         root = BoxLayout(
             orientation="vertical",
@@ -143,15 +150,20 @@ class IDEA2APK(App):
             spacing=dp(8),
             size_hint_y=None
         )
-        form.bind(minimum_height=form.setter("height"))
+
+        form.bind(
+            minimum_height=form.setter("height")
+        )
 
         form.add_widget(self.make_label("App name"))
+
         self.name_input = self.make_input(
             "Example: My Business App"
         )
         form.add_widget(self.name_input)
 
         form.add_widget(self.make_label("App description"))
+
         self.description_input = self.make_input(
             "Describe what your app does",
             90,
@@ -160,18 +172,21 @@ class IDEA2APK(App):
         form.add_widget(self.description_input)
 
         form.add_widget(self.make_label("Target users"))
+
         self.target_input = self.make_input(
             "Example: Customers, students, farmers"
         )
         form.add_widget(self.target_input)
 
         form.add_widget(self.make_label("App type"))
+
         self.type_input = self.make_input(
             "Example: Business, education, shopping"
         )
         form.add_widget(self.type_input)
 
         form.add_widget(self.make_label("App features"))
+
         self.features_input = self.make_input(
             "Enter features separated by commas",
             100,
@@ -209,6 +224,8 @@ class IDEA2APK(App):
 
         self.planner_screen.add_widget(root)
 
+    # PROJECTS SCREEN
+
     def create_projects_screen(self):
         root = BoxLayout(
             orientation="vertical",
@@ -225,6 +242,7 @@ class IDEA2APK(App):
             spacing=dp(6),
             size_hint_y=None
         )
+
         self.project_list.bind(
             minimum_height=self.project_list.setter("height")
         )
@@ -234,14 +252,22 @@ class IDEA2APK(App):
         root.add_widget(scroll)
 
         root.add_widget(
-            self.make_button("REFRESH PROJECTS", self.refresh_projects)
+            self.make_button(
+                "REFRESH PROJECTS",
+                self.refresh_projects
+            )
         )
 
         root.add_widget(
-            self.make_button("BACK HOME", self.go_home)
+            self.make_button(
+                "BACK HOME",
+                self.go_home
+            )
         )
 
         self.projects_screen.add_widget(root)
+
+    # RESULT SCREEN
 
     def create_result_screen(self):
         root = BoxLayout(
@@ -251,7 +277,11 @@ class IDEA2APK(App):
         )
 
         root.add_widget(
-            self.make_label("GENERATED APP CODE", 45, 20)
+            self.make_label(
+                "GENERATED APP CODE",
+                45,
+                20
+            )
         )
 
         self.result_text = TextInput(
@@ -260,6 +290,7 @@ class IDEA2APK(App):
             font_size=sp(12),
             size_hint_y=1
         )
+
         root.add_widget(self.result_text)
 
         root.add_widget(
@@ -284,10 +315,15 @@ class IDEA2APK(App):
         )
 
         root.add_widget(
-            self.make_button("BACK TO PLANNER", self.open_planner)
+            self.make_button(
+                "BACK TO PLANNER",
+                self.open_planner
+            )
         )
 
         self.result_screen.add_widget(root)
+
+    # PROJECT DATA
 
     def get_project_data(self):
         name = self.name_input.text.strip()
@@ -300,7 +336,8 @@ class IDEA2APK(App):
         return {
             "id": (
                 self.current_project["id"]
-                if self.current_project else str(uuid.uuid4())
+                if self.current_project
+                else str(uuid.uuid4())
             ),
             "name": name,
             "description": description,
@@ -309,8 +346,11 @@ class IDEA2APK(App):
             "features": self.features_input.text.strip()
         }
 
+    # BLUEPRINT GENERATION
+
     def generate_blueprint(self, *args):
         data = self.get_project_data()
+
         if not data:
             return
 
@@ -325,11 +365,15 @@ class IDEA2APK(App):
         )
 
         self.generated_code = blueprint
+        self.current_project = data
         self.result_text.text = blueprint
         self.manager.current = "result"
 
+    # APP CODE GENERATION
+
     def generate_app_code(self, *args):
         data = self.get_project_data()
+
         if not data:
             return
 
@@ -343,16 +387,12 @@ class IDEA2APK(App):
             app_name = "MyBusiness"
 
         description = data["description"]
+
         features = [
             item.strip()
             for item in data["features"].split(",")
             if item.strip()
         ]
-
-        feature_lines = "\n".join(
-            "            self.add_feature(" + repr(item) + ")"
-            for item in features
-        )
 
         code = '''from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
@@ -378,21 +418,24 @@ class GeneratedApp(App):
             size_hint_y=None,
             height=dp(65)
         )
+
         root.add_widget(title)
 
         description = Label(
             text=APP_DESCRIPTION,
             font_size=sp(16)
         )
+
         root.add_widget(description)
 
         self.feature_box = BoxLayout(
             orientation="vertical",
             spacing=dp(8)
         )
+
         root.add_widget(self.feature_box)
 
-        self.add_feature("Welcome to your new app")
+        FEATURES
 
         return root
 
@@ -402,6 +445,7 @@ class GeneratedApp(App):
             size_hint_y=None,
             height=dp(50)
         )
+
         self.feature_box.add_widget(button)
 
 
@@ -409,10 +453,29 @@ if __name__ == "__main__":
     GeneratedApp().run()
 '''
 
-        code = code.replace("APP_NAME", repr(app_name))
+        feature_code = "\n".join(
+            "        self.add_feature(" + repr(feature) + ")"
+            for feature in features
+        )
+
+        if not feature_code:
+            feature_code = (
+                '        self.add_feature("Welcome to your app")'
+            )
+
+        code = code.replace(
+            "APP_NAME",
+            repr(app_name)
+        )
+
         code = code.replace(
             "APP_DESCRIPTION",
             repr(description)
+        )
+
+        code = code.replace(
+            "        FEATURES",
+            feature_code
         )
 
         self.generated_code = code
@@ -420,26 +483,45 @@ if __name__ == "__main__":
         self.result_text.text = code
         self.manager.current = "result"
 
+    # SAVE AND LOAD PROJECTS
+
     def load_projects(self):
         try:
             if os.path.exists(PROJECTS_FILE):
-                with open(PROJECTS_FILE, "r", encoding="utf-8") as file:
+                with open(
+                    PROJECTS_FILE,
+                    "r",
+                    encoding="utf-8"
+                ) as file:
                     return json.load(file)
+
         except Exception:
             pass
+
         return []
 
     def save_projects(self):
         try:
-            with open(PROJECTS_FILE, "w", encoding="utf-8") as file:
-                json.dump(self.projects, file, indent=4)
+            with open(
+                PROJECTS_FILE,
+                "w",
+                encoding="utf-8"
+            ) as file:
+                json.dump(
+                    self.projects,
+                    file,
+                    indent=4
+                )
+
             return True
+
         except Exception as error:
             self.message("Save failed: " + str(error))
             return False
 
     def save_current_project(self, *args):
         data = self.get_project_data()
+
         if not data:
             return
 
@@ -482,7 +564,9 @@ if __name__ == "__main__":
                 spacing=dp(5)
             )
 
-            row.add_widget(self.make_label(name, 35, 17))
+            row.add_widget(
+                self.make_label(name, 35, 17)
+            )
 
             row.add_widget(
                 self.make_button(
@@ -522,6 +606,45 @@ if __name__ == "__main__":
         self.save_projects()
         self.refresh_projects()
         self.message("Project deleted.")
+
+    # BUILD SPEC GENERATOR
+
+    def create_buildozer_spec(self, data):
+        package_name = re.sub(
+            r"[^a-z0-9]",
+            "",
+            data["name"].lower().replace(" ", "")
+        )
+
+        if not package_name:
+            package_name = "mybusiness"
+
+        return """[app]
+title = {title}
+package.name = {package}
+package.domain = com.nexgen
+source.dir = .
+source.include_exts = py,kv,png,jpg,jpeg,atlas
+version = 0.1
+requirements = python3,kivy==2.3.0
+orientation = portrait
+fullscreen = 0
+android.api = 34
+android.minapi = 21
+android.ndk = 25b
+android.accept_sdk_license = True
+android.archs = arm64-v8a, armeabi-v7a
+android.permissions = READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE
+
+[buildozer]
+log_level = 2
+warn_on_root = 1
+""".format(
+            title=data["name"],
+            package=package_name
+        )
+
+    # STAGE 5: EXPORT ZIP
 
     def export_project_zip(self, *args):
         if not self.generated_code:
@@ -569,46 +692,67 @@ if __name__ == "__main__":
                     self.create_buildozer_spec(data)
                 )
 
+            self.copy_zip_to_downloads(zip_path)
+
+        except Exception as error:
             self.message(
-                "ZIP exported successfully:\n" + zip_path
+                "ZIP export failed: " + str(error)
+            )
+
+    def copy_zip_to_downloads(self, zip_path):
+        if platform != "android":
+            self.message("ZIP saved at:\n" + zip_path)
+            return
+
+        try:
+            from android.permissions import (
+                request_permissions,
+                Permission
+            )
+
+            request_permissions(
+                [Permission.WRITE_EXTERNAL_STORAGE],
+                lambda permissions, grants:
+                    self.finish_zip_copy(zip_path, grants)
             )
 
         except Exception as error:
-            self.message("ZIP export failed: " + str(error))
+            self.message(
+                "Storage permission error: " + str(error)
+            )
 
-    def create_buildozer_spec(self, data):
-        package_name = re.sub(
-            r"[^a-z0-9]",
-            "",
-            data["name"].lower().replace(" ", "")
-        )
+    def finish_zip_copy(self, zip_path, grants):
+        try:
+            if not grants or not grants[0]:
+                self.message(
+                    "Storage permission denied. "
+                    "Please allow storage access."
+                )
+                return
 
-        if not package_name:
-            package_name = "mybusiness"
+            downloads = "/storage/emulated/0/Download"
+            os.makedirs(downloads, exist_ok=True)
 
-        return """[app]
-title = {title}
-package.name = {package}
-package.domain = com.nexgen
-source.dir = .
-source.include_exts = py,kv,png,jpg,jpeg,atlas
-version = 0.1
-requirements = python3,kivy==2.3.0
-orientation = portrait
-fullscreen = 0
-android.api = 34
-android.minapi = 21
-android.ndk = 25b
-android.accept_sdk_license = True
-android.archs = arm64-v8a, armeabi-v7a
+            destination = os.path.join(
+                downloads,
+                os.path.basename(zip_path)
+            )
 
-[buildozer]
-log_level = 2
-warn_on_root = 1
-""".format(
-            title=data["name"],
-            package=package_name
-        )
+            shutil.copy2(zip_path, destination)
+
+            self.message(
+                "SUCCESS!\n\n"
+                "Your project ZIP is in:\n"
+                "Phone Storage / Download\n\n"
+                + os.path.basename(destination)
+            )
+
+        except Exception as error:
+            self.message(
+                "Could not copy ZIP: " + str(error)
+            )
+
+    # COPY CODE
 
     def copy_generated_code(self, *args):
         if not self.generated_code:
@@ -618,8 +762,11 @@ warn_on_root = 1
         try:
             Clipboard.copy(self.generated_code)
             self.message("Code copied to clipboard.")
+
         except Exception as error:
             self.message("Copy failed: " + str(error))
+
+    # PREPARE APK BUILD
 
     def prepare_apk_build(self, *args):
         if not self.generated_code:
@@ -650,7 +797,9 @@ warn_on_root = 1
                 "w",
                 encoding="utf-8"
             ) as file:
-                file.write(self.create_buildozer_spec(data))
+                file.write(
+                    self.create_buildozer_spec(data)
+                )
 
             with open(
                 os.path.join(folder, "README.txt"),
@@ -659,8 +808,8 @@ warn_on_root = 1
             ) as file:
                 file.write(
                     "IDEA2APK BUILD PACKAGE\n\n"
-                    "Upload this folder's contents to your "
-                    "GitHub project and build using Buildozer.\n"
+                    "Upload these files to your GitHub project "
+                    "and build using Buildozer.\n"
                 )
 
             self.message(
@@ -668,7 +817,11 @@ warn_on_root = 1
             )
 
         except Exception as error:
-            self.message("Preparation failed: " + str(error))
+            self.message(
+                "Preparation failed: " + str(error)
+            )
+
+    # ABOUT AND NAVIGATION
 
     def show_about(self, *args):
         self.message(
@@ -686,6 +839,7 @@ warn_on_root = 1
             ),
             size_hint=(0.88, 0.4)
         )
+
         popup.open()
 
     def open_planner(self, *args):
