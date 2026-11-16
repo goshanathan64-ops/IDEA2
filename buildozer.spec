@@ -17,6 +17,7 @@ fullscreen = 0
 android.api = 34
 android.minapi = 21
 android.ndk = 25b
+android.p4a.branch = v2024.01.21
 android.build_tools_version = 34.0.0
 android.accept_sdk_license = True
 
