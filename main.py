@@ -736,6 +736,7 @@ warn_on_root = 1
             return
 
         from android import activity
+        from jnius import autoclass
         activity.unbind(on_activity_result=self.on_export_activity_result)
 
         try:
