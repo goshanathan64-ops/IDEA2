@@ -633,6 +633,61 @@ warn_on_root = 1
 
     # STAGE 5: ZIP EXPORT
 
+    def create_github_workflow(self):
+        return """name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git zip unzip autoconf automake libtool pkg-config zlib1g-dev libncurses5-dev libffi-dev libssl-dev libltdl-dev cmake
+
+      - name: Install Buildozer
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install -r requirements.txt
+
+      - name: Build Android APK
+        run: buildozer -v android debug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Generated-Android-APK
+          path: bin/*.apk
+          if-no-files-found: error
+"""
+
+    def create_requirements_txt(self):
+        return (
+            "buildozer==1.5.0\\n"
+            "cython==0.29.33\\n"
+            "virtualenv\\n"
+        )
+
     def export_project_zip(self, *args):
         if not self.generated_code:
             self.message("Generate app code first.")
@@ -672,14 +727,29 @@ warn_on_root = 1
                 )
 
                 archive.writestr(
-                    "README.txt",
-                    "IDEA2APK GENERATED PROJECT\n"
-                    "Build this project using Buildozer.\n"
+                    "README.md",
+                    "# " + data["name"] + "\\n\\n"
+                    + data.get("description", "") + "\\n\\n"
+                    + "## Build the Android APK\\n"
+                    + "1. Upload all extracted files to a new GitHub repository.\\n"
+                    + "2. Open the Actions tab.\\n"
+                    + "3. Run the Build Android APK workflow.\\n"
+                    + "4. Download the Generated-Android-APK artifact.\\n"
                 )
 
                 archive.writestr(
                     "buildozer.spec",
                     self.create_buildozer_spec(data)
+                )
+
+                archive.writestr(
+                    "requirements.txt",
+                    self.create_requirements_txt()
+                )
+
+                archive.writestr(
+                    ".github/workflows/build.yml",
+                    self.create_github_workflow()
                 )
 
             if not os.path.exists(zip_path):
@@ -690,7 +760,7 @@ warn_on_root = 1
 
         except Exception as error:
             self.message(
-                "ZIP export failed:\n" + str(error)
+                "ZIP export failed:\\n" + str(error)
             )
 
     # ANDROID ZIP EXPORT USING THE SYSTEM FILE PICKER
