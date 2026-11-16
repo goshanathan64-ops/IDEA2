@@ -686,91 +686,96 @@ warn_on_root = 1
                 self.message("ZIP file could not be created.")
                 return
 
-            self.copy_zip_to_downloads(zip_path)
+            self.save_zip_with_picker(zip_path)
 
         except Exception as error:
             self.message(
                 "ZIP export failed:\n" + str(error)
             )
 
-    # ANDROID STORAGE PERMISSION FIX
+    # ANDROID ZIP EXPORT USING THE SYSTEM FILE PICKER
 
-    def copy_zip_to_downloads(self, zip_path):
+    def save_zip_with_picker(self, zip_path):
+        """Let Android choose where to save the ZIP; no storage permission needed."""
         if platform != "android":
-            self.message("ZIP saved at:\n" + zip_path)
+            self.message("ZIP saved at:\\n" + zip_path)
             return
 
         try:
-            from android.permissions import (
-                request_permissions,
-                check_permission,
-                Permission
-            )
+            from jnius import autoclass
+            from android import activity
 
-            storage_permission = Permission.WRITE_EXTERNAL_STORAGE
+            Intent = autoclass("android.content.Intent")
+            PythonActivity = autoclass("org.kivy.android.PythonActivity")
 
-            # Check whether permission is already granted.
-            if check_permission(storage_permission):
-                self.finish_zip_copy(zip_path, True)
-                return
+            self._pending_export_path = zip_path
+            self._export_request_code = 7301
 
-            # Request permission from Android.
-            request_permissions(
-                [storage_permission],
-                lambda permissions, grants:
-                    Clock.schedule_once(
-                        lambda dt: self.finish_zip_copy(
-                            zip_path,
-                            bool(grants and grants[0])
-                        ),
-                        0
-                    )
-            )
-
-        except Exception as error:
-            self.message(
-                "Storage permission request failed:\n"
-                + str(error)
-            )
-
-    def finish_zip_copy(self, zip_path, granted):
-        try:
-            if not granted:
-                self.message(
-                    "STORAGE PERMISSION DENIED\n\n"
-                    "Open Settings > Apps > IDEA2APK "
-                    "> Permissions and allow Storage."
-                )
-                return
-
-            downloads = "/storage/emulated/0/Download"
-
-            if not os.path.isdir(downloads):
-                os.makedirs(downloads, exist_ok=True)
-
-            destination = os.path.join(
-                downloads,
+            intent = Intent(Intent.ACTION_CREATE_DOCUMENT)
+            intent.addCategory(Intent.CATEGORY_OPENABLE)
+            intent.setType("application/zip")
+            intent.putExtra(
+                Intent.EXTRA_TITLE,
                 os.path.basename(zip_path)
             )
 
-            shutil.copy2(zip_path, destination)
-
-            if os.path.isfile(destination):
-                self.message(
-                    "SUCCESS!\n\n"
-                    "Your project ZIP is in:\n"
-                    "Phone Storage / Download\n\n"
-                    + os.path.basename(destination)
-                )
-            else:
-                self.message(
-                    "ZIP copy could not be verified."
-                )
+            # The Android system picker grants access only to the chosen file.
+            activity.bind(on_activity_result=self.on_export_activity_result)
+            PythonActivity.mActivity.startActivityForResult(
+                intent,
+                self._export_request_code
+            )
 
         except Exception as error:
             self.message(
-                "Could not copy ZIP:\n" + str(error)
+                "Could not open Android save window:\\n" + str(error)
             )
+
+    def on_export_activity_result(self, request_code, result_code, intent):
+        if request_code != getattr(self, "_export_request_code", None):
+            return
+
+        from android import activity
+        activity.unbind(on_activity_result=self.on_export_activity_result)
+
+        try:
+            Activity = autoclass("android.app.Activity")
+            if result_code != Activity.RESULT_OK or intent is None:
+                self.message("ZIP export cancelled. No file was saved.")
+                return
+
+            uri = intent.getData()
+            if uri is None:
+                self.message("Android did not return a save location.")
+                return
+
+            PythonActivity = autoclass("org.kivy.android.PythonActivity")
+            resolver = PythonActivity.mActivity.getContentResolver()
+            output_stream = resolver.openOutputStream(uri)
+
+            if output_stream is None:
+                self.message("Android could not open the selected save location.")
+                return
+
+            try:
+                with open(self._pending_export_path, "rb") as source:
+                    while True:
+                        chunk = source.read(64 * 1024)
+                        if not chunk:
+                            break
+                        output_stream.write(bytearray(chunk))
+                output_stream.flush()
+            finally:
+                output_stream.close()
+
+            self.message(
+                "SUCCESS!\\n\\nProject ZIP saved to the location you selected:\\n"
+                + os.path.basename(self._pending_export_path)
+            )
+
+        except Exception as error:
+            self.message("ZIP save failed:\\n" + str(error))
+
 
     # COPY GENERATED CODE
 
