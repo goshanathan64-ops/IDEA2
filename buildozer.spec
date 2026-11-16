@@ -23,7 +23,8 @@ android.accept_sdk_license = True
 
 android.archs = arm64-v8a, armeabi-v7a
 
-android.permissions = INTERNET
+# Required for exporting ZIP files to shared Downloads on older Android devices.
+android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE
 
 [buildozer]
 
