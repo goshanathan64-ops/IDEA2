@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+  pull_request:
 
 jobs:
   build:
@@ -48,6 +49,9 @@ jobs:
           python --version
           java -version
           buildozer --version
+
+      - name: Check Python syntax
+        run: python -m py_compile main.py
 
       - name: Build Android APK
         run: |
