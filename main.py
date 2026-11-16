@@ -609,19 +609,28 @@ if __name__ == "__main__":
 title = {title}
 package.name = {package}
 package.domain = com.nexgen
+
 source.dir = .
-source.include_exts = py,kv,png,jpg,jpeg,atlas
+source.include_exts = py,kv,png,jpg,jpeg,atlas,txt
+
 version = 0.1
-requirements = python3,kivy==2.3.0
+
+requirements = python3==3.11.5,hostpython3==3.11.5,kivy==2.3.0
+
 orientation = portrait
 fullscreen = 0
+
 android.api = 34
 android.minapi = 21
 android.ndk = 25b
+p4a.branch = v2024.01.21
 android.build_tools_version = 34.0.0
 android.accept_sdk_license = True
+
 android.archs = arm64-v8a, armeabi-v7a
-android.permissions = READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE
+
+# Use Android's system file picker; no broad storage permission is needed.
+android.permissions = INTERNET
 
 [buildozer]
 log_level = 2
