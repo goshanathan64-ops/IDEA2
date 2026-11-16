@@ -683,9 +683,9 @@ jobs:
 
     def create_requirements_txt(self):
         return (
-            "buildozer==1.5.0\\n"
-            "cython==0.29.33\\n"
-            "virtualenv\\n"
+            "buildozer==1.5.0\n"
+            "cython==0.29.33\n"
+            "virtualenv\n"
         )
 
     def export_project_zip(self, *args):
@@ -728,13 +728,13 @@ jobs:
 
                 archive.writestr(
                     "README.md",
-                    "# " + data["name"] + "\\n\\n"
-                    + data.get("description", "") + "\\n\\n"
-                    + "## Build the Android APK\\n"
-                    + "1. Upload all extracted files to a new GitHub repository.\\n"
-                    + "2. Open the Actions tab.\\n"
-                    + "3. Run the Build Android APK workflow.\\n"
-                    + "4. Download the Generated-Android-APK artifact.\\n"
+                    "# " + data["name"] + "\n\n"
+                    + data.get("description", "") + "\n\n"
+                    + "## Build the Android APK\n"
+                    + "1. Upload all extracted files to a new GitHub repository.\n"
+                    + "2. Open the Actions tab.\n"
+                    + "3. Run the Build Android APK workflow.\n"
+                    + "4. Download the Generated-Android-APK artifact.\n"
                 )
 
                 archive.writestr(
@@ -760,7 +760,7 @@ jobs:
 
         except Exception as error:
             self.message(
-                "ZIP export failed:\\n" + str(error)
+                "ZIP export failed:\n" + str(error)
             )
 
     # ANDROID ZIP EXPORT USING THE SYSTEM FILE PICKER
