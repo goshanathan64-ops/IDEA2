@@ -307,8 +307,8 @@ class IDEA2APK(App):
 
         root.add_widget(
             self.make_button(
-                "PREPARE APK BUILD",
-                self.prepare_apk_build
+                "BUILD APK (CREATE BUILD PACKAGE)",
+                self.build_apk
             )
         )
 
@@ -596,14 +596,23 @@ if __name__ == "__main__":
     # BUILD SPEC GENERATOR
 
     def create_buildozer_spec(self, data):
+        safe_title = re.sub(
+            r"[\r\n]+",
+            " ",
+            data.get("name", "MyBusiness")
+        ).strip()[:50] or "MyBusiness"
+
         package_name = re.sub(
             r"[^a-z0-9]",
             "",
-            data["name"].lower().replace(" ", "")
+            safe_title.lower()
         )
 
         if not package_name:
             package_name = "mybusiness"
+        if not package_name[0].isalpha():
+            package_name = "app" + package_name
+        package_name = package_name[:50]
 
         return """[app]
 title = {title}
@@ -636,7 +645,7 @@ android.permissions = INTERNET
 log_level = 2
 warn_on_root = 1
 """.format(
-            title=data["name"],
+            title=safe_title,
             package=package_name
         )
 
@@ -740,10 +749,17 @@ jobs:
                     "# " + data["name"] + "\n\n"
                     + data.get("description", "") + "\n\n"
                     + "## Build the Android APK\n"
-                    + "1. Upload all extracted files to a new GitHub repository.\n"
-                    + "2. Open the Actions tab.\n"
-                    + "3. Run the Build Android APK workflow.\n"
-                    + "4. Download the Generated-Android-APK artifact.\n"
+                    + "This ZIP is a build package, not the APK itself.\n\n"
+                    + "1. Create a GitHub repository.\n"
+                    + "2. Extract this ZIP and upload all files, including the hidden .github folder.\n"
+                    + "3. Commit the files to the main branch.\n"
+                    + "4. Open the repository Actions tab.\n"
+                    + "5. Select Build Android APK, then choose Run workflow.\n"
+                    + "6. Wait for the build to finish successfully.\n"
+                    + "7. Open the completed run and download Generated-Android-APK.\n"
+                    + "8. Extract the downloaded artifact and install the APK on Android.\n\n"
+                    + "Security: do not put passwords, API keys or private information in this project.\n"
+                    + "On a public repository, uploaded source code is visible to everyone.\n"
                 )
 
                 archive.writestr(
@@ -849,7 +865,16 @@ jobs:
                 output_stream.close()
 
             self.message(
-                "SUCCESS!\\n\\nProject ZIP saved to the location you selected:\\n"
+                "BUILD PACKAGE SAVED\\n\\n"
+                "This ZIP is not the APK yet. GitHub Actions must build it.\\n\\n"
+                "Next steps:\\n"
+                "1. Extract the ZIP.\\n"
+                "2. Upload all files, including the hidden .github folder, to a GitHub repository.\\n"
+                "3. Commit the files to the main branch.\\n"
+                "4. Open Actions > Build Android APK > Run workflow.\\n"
+                "5. When the run succeeds, download Generated-Android-APK.\\n"
+                "6. Extract the artifact and install the APK.\\n\\n"
+                "Saved as: "
                 + os.path.basename(self._pending_export_path)
             )
 
@@ -870,6 +895,26 @@ jobs:
 
         except Exception as error:
             self.message("Copy failed: " + str(error))
+
+    # BUILD APK PACKAGE
+
+    def build_apk(self, *args):
+        """Create a complete GitHub Actions build package for the generated app.
+
+        This prepares the project for a remote APK build. It does not compile
+        the APK on the phone; GitHub Actions performs that build after upload.
+        """
+        if not self.generated_code:
+            self.message("Generate app code first.")
+            return
+
+        data = self.current_project or {}
+        if not data.get("name", "").strip():
+            self.message("Please enter and generate an app name first.")
+            return
+
+        # Reuse the existing ZIP export and Android system save picker.
+        self.export_project_zip(*args)
 
     # PREPARE APK BUILD
 
