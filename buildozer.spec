@@ -1,5 +1,4 @@
 
-
 [app]
 
 title = IDEA2APK
@@ -25,6 +24,10 @@ android.accept_sdk_license = True
 android.archs = arm64-v8a, armeabi-v7a
 
 android.permissions = READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE
+
+# Python-for-Android fix
+p4a.branch = develop
+p4a.commit = 0382d27de2f7315ed98e74884bafb30365decdee
 
 [buildozer]
 
