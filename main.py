@@ -33,6 +33,7 @@ class IDEA2APK(App):
         self.projects = self.load_projects()
         self.current_project = None
         self.generated_code = ""
+        self.generated_is_app_code = False
 
         self.manager = ScreenManager()
 
@@ -363,6 +364,7 @@ class IDEA2APK(App):
         )
 
         self.generated_code = blueprint
+        self.generated_is_app_code = False
         self.current_project = data
         self.result_text.text = blueprint
         self.manager.current = "result"
@@ -466,6 +468,7 @@ if __name__ == "__main__":
         code = code.replace("        FEATURES", feature_code)
 
         self.generated_code = code
+        self.generated_is_app_code = True
         self.current_project = data
         self.result_text.text = code
         self.manager.current = "result"
@@ -865,15 +868,15 @@ jobs:
                 output_stream.close()
 
             self.message(
-                "BUILD PACKAGE SAVED\\n\\n"
-                "This ZIP is not the APK yet. GitHub Actions must build it.\\n\\n"
-                "Next steps:\\n"
-                "1. Extract the ZIP.\\n"
-                "2. Upload all files, including the hidden .github folder, to a GitHub repository.\\n"
-                "3. Commit the files to the main branch.\\n"
-                "4. Open Actions > Build Android APK > Run workflow.\\n"
-                "5. When the run succeeds, download Generated-Android-APK.\\n"
-                "6. Extract the artifact and install the APK.\\n\\n"
+                "BUILD PACKAGE SAVED\n\n"
+                "This ZIP is not the APK yet. GitHub Actions must build it.\n\n"
+                "Next steps:\n"
+                "1. Extract the ZIP.\n"
+                "2. Upload all files, including the hidden .github folder, to a GitHub repository.\n"
+                "3. Commit the files to the main branch.\n"
+                "4. Open Actions > Build Android APK > Run workflow.\n"
+                "5. When the run succeeds, download Generated-Android-APK.\n"
+                "6. Extract the artifact and install the APK.\n\n"
                 "Saved as: "
                 + os.path.basename(self._pending_export_path)
             )
@@ -904,8 +907,8 @@ jobs:
         This prepares the project for a remote APK build. It does not compile
         the APK on the phone; GitHub Actions performs that build after upload.
         """
-        if not self.generated_code:
-            self.message("Generate app code first.")
+        if not self.generated_code or not self.generated_is_app_code:
+            self.message("Generate APP CODE first. A blueprint cannot be built as an APK.")
             return
 
         data = self.current_project or {}
