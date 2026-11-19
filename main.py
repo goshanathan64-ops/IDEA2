@@ -241,7 +241,8 @@ class IDEA2APK(App):
         scroll.add_widget(form)
         root.add_widget(scroll)
 
-        root.add_widget(            self.make_button("BACK HOME", self.go_home)
+        root.add_widget(
+            self.make_button("BACK HOME", self.go_home)
         )
 
         self.planner_screen.add_widget(root)
@@ -482,7 +483,8 @@ class GeneratedApp(App):
         )
         root.add_widget(self.status)
 
-        scroll = ScrollView()        self.content = BoxLayout(
+        scroll = ScrollView()
+        self.content = BoxLayout(
             orientation="vertical",
             spacing=dp(7),
             size_hint_y=None
@@ -702,6 +704,7 @@ class GeneratedApp(App):
                 12
             )
         self.navigation()
+
     def add_expense(self):
         self.open_form(
             "Add expense",
@@ -921,6 +924,7 @@ if __name__ == "__main__":
 
         for project in self.projects:
             name = project.get("name", "Unnamed project")
+
             row = BoxLayout(
                 orientation="vertical",
                 size_hint_y=None,
@@ -1141,3 +1145,243 @@ jobs:
                     + "Security: do not put passwords, API keys or private information in this project.\n"
                     + "On a public repository, uploaded source code is visible to everyone.\n"
                 )
+
+                archive.writestr(
+                    "buildozer.spec",
+                    self.create_buildozer_spec(data)
+                )
+
+                archive.writestr(
+                    "requirements.txt",
+                    self.create_requirements_txt()
+                )
+
+                archive.writestr(
+                    ".github/workflows/build.yml",
+                    self.create_github_workflow()
+                )
+
+            if not os.path.exists(zip_path):
+                self.message("ZIP file could not be created.")
+                return
+
+            self.save_zip_with_picker(zip_path)
+
+        except Exception as error:
+            self.message(
+                "ZIP export failed:\n" + str(error)
+            )
+
+    # ANDROID ZIP EXPORT USING THE SYSTEM FILE PICKER
+
+    def save_zip_with_picker(self, zip_path):
+        """Let Android choose where to save the ZIP; no storage permission needed."""
+        if platform != "android":
+            self.message("ZIP saved at:\\n" + zip_path)
+            return
+
+        try:
+            from jnius import autoclass
+            from android import activity
+
+            Intent = autoclass("android.content.Intent")
+            PythonActivity = autoclass("org.kivy.android.PythonActivity")
+
+            self._pending_export_path = zip_path
+            self._export_request_code = 7301
+
+            intent = Intent(Intent.ACTION_CREATE_DOCUMENT)
+            intent.addCategory(Intent.CATEGORY_OPENABLE)
+            intent.setType("application/zip")
+            intent.putExtra(
+                Intent.EXTRA_TITLE,
+                os.path.basename(zip_path)
+            )
+
+            # The Android system picker grants access only to the chosen file.
+            activity.bind(on_activity_result=self.on_export_activity_result)
+            PythonActivity.mActivity.startActivityForResult(
+                intent,
+                self._export_request_code
+            )
+
+        except Exception as error:
+            self.message(
+                "Could not open Android save window:\\n" + str(error)
+            )
+
+    def on_export_activity_result(self, request_code, result_code, intent):
+        if request_code != getattr(self, "_export_request_code", None):
+            return
+
+        from android import activity
+        from jnius import autoclass
+        activity.unbind(on_activity_result=self.on_export_activity_result)
+
+        try:
+            Activity = autoclass("android.app.Activity")
+            if result_code != Activity.RESULT_OK or intent is None:
+                self.message("ZIP export cancelled. No file was saved.")
+                return
+
+            uri = intent.getData()
+            if uri is None:
+                self.message("Android did not return a save location.")
+                return
+
+            PythonActivity = autoclass("org.kivy.android.PythonActivity")
+            resolver = PythonActivity.mActivity.getContentResolver()
+            output_stream = resolver.openOutputStream(uri)
+
+            if output_stream is None:
+                self.message("Android could not open the selected save location.")
+                return
+
+            try:
+                with open(self._pending_export_path, "rb") as source:
+                    while True:
+                        chunk = source.read(64 * 1024)
+                        if not chunk:
+                            break
+                        output_stream.write(bytearray(chunk))
+                output_stream.flush()
+            finally:
+                output_stream.close()
+
+            self.message(
+                "BUILD PACKAGE SAVED\n\n"
+                "This ZIP is not the APK yet. GitHub Actions must build it.\n\n"
+                "Next steps:\n"
+                "1. Extract the ZIP.\n"
+                "2. Upload all files, including the hidden .github folder, to a GitHub repository.\n"
+                "3. Commit the files to the main branch.\n"
+                "4. Open Actions > Build Android APK > Run workflow.\n"
+                "5. When the run succeeds, download Generated-Android-APK.\n"
+                "6. Extract the artifact and install the APK.\n\n"
+                "Saved as: "
+                + os.path.basename(self._pending_export_path)
+            )
+
+        except Exception as error:
+            self.message("ZIP save failed:\\n" + str(error))
+
+
+    # COPY GENERATED CODE
+
+    def copy_generated_code(self, *args):
+        if not self.generated_code:
+            self.message("Generate app code first.")
+            return
+
+        try:
+            Clipboard.copy(self.generated_code)
+            self.message("Code copied to clipboard.")
+
+        except Exception as error:
+            self.message("Copy failed: " + str(error))
+
+    # BUILD APK PACKAGE
+
+    def build_apk(self, *args):
+        """Create a complete GitHub Actions build package for the generated app.
+
+        This prepares the project for a remote APK build. It does not compile
+        the APK on the phone; GitHub Actions performs that build after upload.
+        """
+        if not self.generated_code or not self.generated_is_app_code:
+            self.message("Generate APP CODE first. A blueprint cannot be built as an APK.")
+            return
+
+        data = self.current_project or {}
+        if not data.get("name", "").strip():
+            self.message("Please enter and generate an app name first.")
+            return
+
+        # Reuse the existing ZIP export and Android system save picker.
+        self.export_project_zip(*args)
+
+    # PREPARE APK BUILD
+
+    def prepare_apk_build(self, *args):
+        if not self.generated_code:
+            self.message("Generate app code first.")
+            return
+
+        try:
+            data = self.current_project or {
+                "name": "MyBusiness"
+            }
+
+            folder = os.path.join(
+                EXPORT_DIR,
+                "apk_build"
+            )
+
+            os.makedirs(folder, exist_ok=True)
+
+            with open(
+                os.path.join(folder, "main.py"),
+                "w",
+                encoding="utf-8"
+            ) as file:
+                file.write(self.generated_code)
+
+            with open(
+                os.path.join(folder, "buildozer.spec"),
+                "w",
+                encoding="utf-8"
+            ) as file:
+                file.write(
+                    self.create_buildozer_spec(data)
+                )
+
+            with open(
+                os.path.join(folder, "README.txt"),
+                "w",
+                encoding="utf-8"
+            ) as file:
+                file.write(
+                    "IDEA2APK BUILD PACKAGE\n\n"
+                    "Upload these files to your GitHub project "
+                    "and build using Buildozer.\n"
+                )
+
+            self.message(
+                "APK build files prepared:\n" + folder
+            )
+
+        except Exception as error:
+            self.message(
+                "Preparation failed:\n" + str(error)
+            )
+
+    # ABOUT AND NAVIGATION
+
+    def show_about(self, *args):
+        self.message(
+            "IDEA2APK\n\n"
+            "A NexGen project for turning app ideas "
+            "into Android application projects."
+        )
+
+    def message(self, text):
+        popup = Popup(
+            title="IDEA2APK",
+            content=Label(
+                text=text,
+                halign="center"
+            ),
+            size_hint=(0.88, 0.4)
+        )
+
+        popup.open()
+
+    def open_planner(self, *args):
+        self.manager.current = "planner"
+
+    def go_home(self, *args):
+        self.manager.current = "home"
+
+
+if __name__ == "__main__":
+    IDEA2APK().run()
