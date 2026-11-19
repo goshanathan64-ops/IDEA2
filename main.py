@@ -382,91 +382,424 @@ class IDEA2APK(App):
             "",
             data["name"].replace(" ", "_")
         )
-
         if not app_name:
-            app_name = "MyBusiness"
+            app_name = "HardwareShopManager"
 
-        description = data["description"]
+        # Stage 2: generate a working hardware-shop management app.
+        # The generated app stores its records locally on the Android device.
+        code = r'''import os
+import json
+from datetime import date, datetime
 
-        features = [
-            item.strip()
-            for item in data["features"].split(",")
-            if item.strip()
-        ]
-
-        code = '''from kivy.app import App
+from kivy.app import App
+from kivy.metrics import dp, sp
 from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.scrollview import ScrollView
 from kivy.uix.label import Label
 from kivy.uix.button import Button
-from kivy.metrics import dp, sp
+from kivy.uix.textinput import TextInput
+from kivy.uix.popup import Popup
+
+
+APP_TITLE = __APP_TITLE__
+APP_DESCRIPTION = __APP_DESCRIPTION__
 
 
 class GeneratedApp(App):
 
     def build(self):
-        self.title = APP_NAME
+        self.title = APP_TITLE
+        self.data_file = os.path.join(
+            self.user_data_dir, "hardware_shop_data.json"
+        )
+        self.data = self.load_data()
 
         root = BoxLayout(
             orientation="vertical",
-            padding=dp(20),
-            spacing=dp(12)
+            padding=dp(10),
+            spacing=dp(7)
         )
 
-        title = Label(
-            text=APP_NAME,
-            font_size=sp(25),
+        heading = Label(
+            text=APP_TITLE,
             size_hint_y=None,
-            height=dp(65)
+            height=dp(48),
+            font_size=sp(22),
+            bold=True
         )
+        root.add_widget(heading)
 
-        root.add_widget(title)
-
-        description = Label(
-            text=APP_DESCRIPTION,
-            font_size=sp(16)
+        self.status = Label(
+            text="Hardware Shop Manager",
+            size_hint_y=None,
+            height=dp(30),
+            font_size=sp(13)
         )
+        root.add_widget(self.status)
 
-        root.add_widget(description)
-
-        self.feature_box = BoxLayout(
+        scroll = ScrollView()
+        self.content = BoxLayout(
             orientation="vertical",
-            spacing=dp(8)
+            spacing=dp(7),
+            size_hint_y=None
         )
+        self.content.bind(minimum_height=self.content.setter("height"))
+        scroll.add_widget(self.content)
+        root.add_widget(scroll)
 
-        root.add_widget(self.feature_box)
-
-        FEATURES
-
+        self.show_dashboard()
         return root
 
-    def add_feature(self, feature):
-        button = Button(
-            text=feature,
+    def load_data(self):
+        empty = {
+            "products": [],
+            "sales": [],
+            "expenses": [],
+            "customers": []
+        }
+        try:
+            if os.path.exists(self.data_file):
+                with open(self.data_file, "r", encoding="utf-8") as handle:
+                    saved = json.load(handle)
+                for key in empty:
+                    if not isinstance(saved.get(key), list):
+                        saved[key] = []
+                return saved
+        except Exception:
+            pass
+        return empty
+
+    def save_data(self):
+        try:
+            os.makedirs(self.user_data_dir, exist_ok=True)
+            with open(self.data_file, "w", encoding="utf-8") as handle:
+                json.dump(self.data, handle, indent=2)
+            self.status.text = "Saved on this device"
+            return True
+        except Exception as error:
+            self.status.text = "Save error: " + str(error)
+            return False
+
+    def money(self, amount):
+        return "$" + format(float(amount), ".2f")
+
+    def add_label(self, text, height=38, size=15):
+        label = Label(
+            text=str(text),
             size_hint_y=None,
-            height=dp(50)
+            height=dp(height),
+            font_size=sp(size),
+            halign="left",
+            valign="middle"
+        )
+        label.bind(size=lambda obj, value: setattr(obj, "text_size", (value[0], None)))
+        self.content.add_widget(label)
+
+    def add_button(self, text, callback):
+        button = Button(
+            text=text,
+            size_hint_y=None,
+            height=dp(46),
+            font_size=sp(14)
+        )
+        button.bind(on_release=lambda instance: callback())
+        self.content.add_widget(button)
+
+    def clear_content(self):
+        self.content.clear_widgets()
+
+    def navigation(self):
+        self.add_button("DASHBOARD", self.show_dashboard)
+        self.add_button("PRODUCTS AND STOCK", self.show_products)
+        self.add_button("RECORD A SALE", self.show_sales)
+        self.add_button("RECORD AN EXPENSE", self.show_expenses)
+        self.add_button("CUSTOMERS", self.show_customers)
+        self.add_button("DAILY AND MONTHLY REPORTS", self.show_reports)
+
+    def show_dashboard(self):
+        self.clear_content()
+        self.add_label("BUSINESS DASHBOARD", 42, 19)
+        stock_value = sum(
+            float(p.get("price", 0)) * int(p.get("quantity", 0))
+            for p in self.data["products"]
+        )
+        today = date.today().isoformat()
+        today_sales = sum(
+            float(s.get("total", 0))
+            for s in self.data["sales"] if s.get("date") == today
+        )
+        today_expenses = sum(
+            float(e.get("amount", 0))
+            for e in self.data["expenses"] if e.get("date") == today
+        )
+        self.add_label("Products listed: " + str(len(self.data["products"])))
+        self.add_label("Stock value at selling price: " + self.money(stock_value))
+        self.add_label("Sales today: " + self.money(today_sales))
+        self.add_label("Expenses today: " + self.money(today_expenses))
+        self.add_label("Customers saved: " + str(len(self.data["customers"])))
+        self.add_label("Records are saved locally on this device.", 48, 12)
+        self.navigation()
+
+    def show_products(self):
+        self.clear_content()
+        self.add_label("PRODUCTS AND STOCK", 42, 19)
+        self.add_button("ADD NEW PRODUCT", self.add_product)
+        if not self.data["products"]:
+            self.add_label("No products yet. Add your first product.")
+        for item in self.data["products"]:
+            self.add_label(
+                "{} | {} in stock | {}".format(
+                    item.get("name", ""),
+                    item.get("quantity", 0),
+                    self.money(item.get("price", 0))
+                ),
+                44,
+                13
+            )
+        self.navigation()
+
+    def add_product(self):
+        self.open_form(
+            "Add product",
+            ["Product name", "Selling price (USD)", "Opening quantity"],
+            self.save_product
         )
 
-        self.feature_box.add_widget(button)
+    def save_product(self, values):
+        try:
+            name = values[0].strip()
+            price = float(values[1])
+            quantity = int(values[2])
+            if not name or price < 0 or quantity < 0:
+                raise ValueError()
+        except Exception:
+            self.show_message("Enter a product name, a valid price and a whole-number quantity.")
+            return
+        self.data["products"].append({
+            "name": name,
+            "price": price,
+            "quantity": quantity
+        })
+        self.save_data()
+        self.show_products()
+
+    def show_sales(self):
+        self.clear_content()
+        self.add_label("SALES", 42, 19)
+        self.add_label("Record a sale using the exact product name.")
+        self.add_button("RECORD NEW SALE", self.add_sale)
+        for sale in reversed(self.data["sales"][-20:]):
+            self.add_label(
+                "{} | {} x {} | {}".format(
+                    sale.get("date", ""),
+                    sale.get("quantity", 0),
+                    sale.get("product", ""),
+                    self.money(sale.get("total", 0))
+                ),
+                42,
+                12
+            )
+        self.navigation()
+
+    def add_sale(self):
+        self.open_form(
+            "Record sale",
+            ["Exact product name", "Quantity sold"],
+            self.save_sale
+        )
+
+    def save_sale(self, values):
+        name = values[0].strip().lower()
+        try:
+            quantity = int(values[1])
+            if not name or quantity <= 0:
+                raise ValueError()
+        except Exception:
+            self.show_message("Enter a product name and a quantity greater than zero.")
+            return
+
+        product = next(
+            (p for p in self.data["products"] if p.get("name", "").lower() == name),
+            None
+        )
+        if product is None:
+            self.show_message("That product was not found. Check its exact name.")
+            return
+        if int(product.get("quantity", 0)) < quantity:
+            self.show_message("Not enough stock. Available: " + str(product.get("quantity", 0)))
+            return
+
+        total = float(product.get("price", 0)) * quantity
+        product["quantity"] = int(product.get("quantity", 0)) - quantity
+        self.data["sales"].append({
+            "product": product["name"],
+            "quantity": quantity,
+            "unit_price": float(product.get("price", 0)),
+            "total": total,
+            "date": date.today().isoformat(),
+            "time": datetime.now().strftime("%H:%M")
+        })
+        self.save_data()
+        self.show_message("Sale saved. Total: " + self.money(total))
+        self.show_sales()
+
+    def show_expenses(self):
+        self.clear_content()
+        self.add_label("EXPENSES", 42, 19)
+        self.add_button("ADD EXPENSE", self.add_expense)
+        for expense in reversed(self.data["expenses"][-20:]):
+            self.add_label(
+                "{} | {} | {}".format(
+                    expense.get("date", ""),
+                    expense.get("description", ""),
+                    self.money(expense.get("amount", 0))
+                ),
+                42,
+                12
+            )
+        self.navigation()
+
+    def add_expense(self):
+        self.open_form(
+            "Add expense",
+            ["Expense description", "Amount (USD)"],
+            self.save_expense
+        )
+
+    def save_expense(self, values):
+        try:
+            description = values[0].strip()
+            amount = float(values[1])
+            if not description or amount <= 0:
+                raise ValueError()
+        except Exception:
+            self.show_message("Enter a description and an amount greater than zero.")
+            return
+        self.data["expenses"].append({
+            "description": description,
+            "amount": amount,
+            "date": date.today().isoformat()
+        })
+        self.save_data()
+        self.show_expenses()
+
+    def show_customers(self):
+        self.clear_content()
+        self.add_label("CUSTOMERS", 42, 19)
+        self.add_button("ADD CUSTOMER", self.add_customer)
+        for customer in self.data["customers"]:
+            self.add_label(
+                "{} | {}".format(
+                    customer.get("name", ""),
+                    customer.get("phone", "")
+                ),
+                42,
+                13
+            )
+        self.navigation()
+
+    def add_customer(self):
+        self.open_form(
+            "Add customer",
+            ["Customer name", "Phone number (optional)"],
+            self.save_customer
+        )
+
+    def save_customer(self, values):
+        name = values[0].strip()
+        if not name:
+            self.show_message("Enter the customer's name.")
+            return
+        self.data["customers"].append({
+            "name": name,
+            "phone": values[1].strip()
+        })
+        self.save_data()
+        self.show_customers()
+
+    def show_reports(self):
+        self.clear_content()
+        self.add_label("BUSINESS REPORTS", 42, 19)
+        today = date.today().isoformat()
+        month = date.today().strftime("%Y-%m")
+        daily_sales = sum(float(s.get("total", 0)) for s in self.data["sales"] if s.get("date") == today)
+        daily_expenses = sum(float(e.get("amount", 0)) for e in self.data["expenses"] if e.get("date") == today)
+        monthly_sales = sum(float(s.get("total", 0)) for s in self.data["sales"] if str(s.get("date", "")).startswith(month))
+        monthly_expenses = sum(float(e.get("amount", 0)) for e in self.data["expenses"] if str(e.get("date", "")).startswith(month))
+        self.add_label("TODAY", 34, 16)
+        self.add_label("Sales: " + self.money(daily_sales))
+        self.add_label("Expenses: " + self.money(daily_expenses))
+        self.add_label("Net before other costs: " + self.money(daily_sales - daily_expenses))
+        self.add_label("THIS MONTH", 34, 16)
+        self.add_label("Sales: " + self.money(monthly_sales))
+        self.add_label("Expenses: " + self.money(monthly_expenses))
+        self.add_label("Net before other costs: " + self.money(monthly_sales - monthly_expenses))
+        self.add_label("Reports use the dates recorded on this device.", 46, 12)
+        self.navigation()
+
+    def open_form(self, title, prompts, callback):
+        panel = BoxLayout(
+            orientation="vertical",
+            padding=dp(10),
+            spacing=dp(8)
+        )
+        fields = []
+        for prompt in prompts:
+            field = TextInput(
+                hint_text=prompt,
+                multiline=False,
+                size_hint_y=None,
+                height=dp(44),
+                font_size=sp(14)
+            )
+            fields.append(field)
+            panel.add_widget(field)
+
+        controls = BoxLayout(
+            size_hint_y=None,
+            height=dp(46),
+            spacing=dp(8)
+        )
+        popup = Popup(
+            title=title,
+            content=panel,
+            size_hint=(0.9, None),
+            height=dp(300)
+        )
+        save_button = Button(text="SAVE")
+        cancel_button = Button(text="CANCEL")
+        controls.add_widget(save_button)
+        controls.add_widget(cancel_button)
+        panel.add_widget(controls)
+
+        def submit(instance):
+            values = [field.text for field in fields]
+            popup.dismiss()
+            callback(values)
+
+        save_button.bind(on_release=submit)
+        cancel_button.bind(on_release=lambda instance: popup.dismiss())
+        popup.open()
+
+    def show_message(self, message):
+        panel = BoxLayout(
+            orientation="vertical",
+            padding=dp(10),
+            spacing=dp(8)
+        )
+        panel.add_widget(Label(text=message))
+        close_button = Button(text="OK", size_hint_y=None, height=dp(44))
+        panel.add_widget(close_button)
+        popup = Popup(title="Hardware Shop Manager", content=panel, size_hint=(0.85, 0.35))
+        close_button.bind(on_release=popup.dismiss)
+        popup.open()
 
 
 if __name__ == "__main__":
     GeneratedApp().run()
 '''
-
-        feature_code = "\n".join(
-            "        self.add_feature(" + repr(feature) + ")"
-            for feature in features
-        )
-
-        if not feature_code:
-            feature_code = (
-                '        self.add_feature("Welcome to your app")'
-            )
-
-        code = code.replace("APP_NAME", repr(app_name))
-        code = code.replace("APP_DESCRIPTION", repr(description))
-        code = code.replace("        FEATURES", feature_code)
-
+        code = code.replace("__APP_TITLE__", repr(app_name))
+        code = code.replace("__APP_DESCRIPTION__", repr(data["description"]))
         self.generated_code = code
         self.generated_is_app_code = True
         self.current_project = data
