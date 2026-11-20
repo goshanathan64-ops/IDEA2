@@ -7,7 +7,7 @@ package.domain = com.nexgen
 source.dir = .
 source.include_exts = py,kv,png,jpg,jpeg,atlas,txt
 
-version = 0.1
+version = 0.2
 
 requirements = python3==3.11.5,hostpython3==3.11.5,kivy==2.3.0
 
