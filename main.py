@@ -583,6 +583,20 @@ class GeneratedApp(App):
         self.add_label("Sales today: " + self.money(today_sales))
         self.add_label("Expenses today: " + self.money(today_expenses))
         self.add_label("Customers saved: " + str(len(self.data["customers"])))
+        low_stock = [
+            p for p in self.data["products"]
+            if 0 <= int(p.get("quantity", 0)) <= 5
+        ]
+        self.add_label("LOW STOCK ALERTS: " + str(len(low_stock)), 34, 16)
+        if low_stock:
+            for product in low_stock[:5]:
+                self.add_label(
+                    "{} — only {} left".format(
+                        product.get("name", ""), product.get("quantity", 0)
+                    ), 34, 12
+                )
+        else:
+            self.add_label("No products at or below 5 units.", 34, 12)
         self.add_label("Records are saved locally on this device.", 48, 12)
         self.navigation()
 
@@ -590,19 +604,111 @@ class GeneratedApp(App):
         self.clear_content()
         self.add_label("PRODUCTS AND STOCK", 42, 19)
         self.add_button("ADD NEW PRODUCT", self.add_product)
-        if not self.data["products"]:
-            self.add_label("No products yet. Add your first product.")
-        for item in self.data["products"]:
-            self.add_label(
-                "{} | {} in stock | {}".format(
+        self.product_search = TextInput(
+            hint_text="Search products by name",
+            multiline=False,
+            size_hint_y=None,
+            height=dp(44),
+            font_size=sp(14)
+        )
+        self.product_search.bind(text=lambda instance, value: self.render_products())
+        self.content.add_widget(self.product_search)
+        self.render_products()
+        self.navigation()
+
+    def render_products(self):
+        if not hasattr(self, "product_search"):
+            return
+        if hasattr(self, "product_rows"):
+            for widget in list(self.product_rows):
+                if widget.parent:
+                    self.content.remove_widget(widget)
+        self.product_rows = []
+        query = self.product_search.text.strip().lower()
+        matches = [
+            (index, item) for index, item in enumerate(self.data["products"])
+            if query in item.get("name", "").lower()
+        ]
+        if not matches:
+            label = Label(
+                text="No matching products. Add a product or change your search.",
+                size_hint_y=None, height=dp(44), font_size=sp(13)
+            )
+            self.content.add_widget(label)
+            self.product_rows.append(label)
+        for index, item in matches:
+            row = BoxLayout(
+                orientation="vertical",
+                size_hint_y=None,
+                height=dp(104),
+                spacing=dp(3)
+            )
+            row.add_widget(Label(
+                text="{} | {} in stock | {}".format(
                     item.get("name", ""),
                     item.get("quantity", 0),
                     self.money(item.get("price", 0))
                 ),
-                44,
-                13
-            )
-        self.navigation()
+                size_hint_y=None, height=dp(38), font_size=sp(13)
+            ))
+            actions = BoxLayout(size_hint_y=None, height=dp(42), spacing=dp(5))
+            edit_btn = Button(text="EDIT", font_size=sp(12))
+            delete_btn = Button(text="DELETE", font_size=sp(12))
+            edit_btn.bind(on_release=lambda instance, i=index: self.edit_product(i))
+            delete_btn.bind(on_release=lambda instance, i=index: self.confirm_delete_product(i))
+            actions.add_widget(edit_btn)
+            actions.add_widget(delete_btn)
+            row.add_widget(actions)
+            self.content.add_widget(row)
+            self.product_rows.append(row)
+
+    def edit_product(self, index):
+        product = self.data["products"][index]
+        self.open_form(
+            "Edit product",
+            ["Product name", "Selling price (USD)", "Quantity in stock"],
+            lambda values: self.update_product(index, values),
+            [product.get("name", ""), str(product.get("price", 0)),
+             str(product.get("quantity", 0))]
+        )
+
+    def update_product(self, index, values):
+        try:
+            name = values[0].strip()
+            price = float(values[1])
+            quantity = int(values[2])
+            if not name or price < 0 or quantity < 0:
+                raise ValueError()
+        except Exception:
+            self.show_message("Enter a name, valid price and whole-number stock quantity.")
+            return
+        self.data["products"][index].update({
+            "name": name, "price": price, "quantity": quantity
+        })
+        self.save_data()
+        self.show_products()
+
+    def confirm_delete_product(self, index):
+        panel = BoxLayout(orientation="vertical", padding=dp(10), spacing=dp(8))
+        panel.add_widget(Label(text="Delete this product? This cannot be undone."))
+        controls = BoxLayout(size_hint_y=None, height=dp(44), spacing=dp(8))
+        popup = Popup(title="Confirm deletion", content=panel,
+                      size_hint=(0.88, 0.32))
+        yes = Button(text="DELETE")
+        no = Button(text="CANCEL")
+        controls.add_widget(yes)
+        controls.add_widget(no)
+        panel.add_widget(controls)
+        yes.bind(on_release=lambda instance: self.delete_product(index, popup))
+        no.bind(on_release=popup.dismiss)
+        popup.open()
+
+    def delete_product(self, index, popup):
+        popup.dismiss()
+        if 0 <= index < len(self.data["products"]):
+            self.data["products"].pop(index)
+            self.save_data()
+        self.show_products()
 
     def add_product(self):
         self.open_form(
@@ -783,16 +889,17 @@ class GeneratedApp(App):
         self.add_label("Reports use the dates recorded on this device.", 46, 12)
         self.navigation()
 
-    def open_form(self, title, prompts, callback):
+    def open_form(self, title, prompts, callback, initial_values=None):
         panel = BoxLayout(
             orientation="vertical",
             padding=dp(10),
             spacing=dp(8)
         )
         fields = []
-        for prompt in prompts:
+        for index, prompt in enumerate(prompts):
             field = TextInput(
                 hint_text=prompt,
+                text=(initial_values[index] if initial_values and index < len(initial_values) else ""),
                 multiline=False,
                 size_hint_y=None,
                 height=dp(44),
