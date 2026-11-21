@@ -12,7 +12,7 @@ on:
       - ".github/workflows/build-idea2apk.yml"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -54,3 +54,12 @@ jobs:
           path: bin/*.apk
           if-no-files-found: error
           retention-days: 7
+
+      - name: Publish APK on GitHub Releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="idea2apk-build-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
+          gh release create "$TAG" bin/*.apk \
+            --title "IDEA2APK build ${GITHUB_RUN_NUMBER}" \
+            --notes "Automated IDEA2APK Android APK build. Download the APK asset directly from this release."
