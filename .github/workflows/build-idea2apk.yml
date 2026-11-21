@@ -1,0 +1,56 @@
+name: Build IDEA2APK Android App
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "main.py"
+      - "github_builder.py"
+      - "buildozer.spec"
+      - ".github/workflows/build-idea2apk.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git zip unzip openjdk-17-jdk \
+            autoconf automake libtool pkg-config zlib1g-dev \
+            libncurses5-dev libffi-dev libssl-dev libltdl-dev cmake
+
+      - name: Install Buildozer
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install buildozer==1.5.0 cython==0.29.33 virtualenv
+
+      - name: Build debug APK
+        run: buildozer -v android debug
+
+      - name: Upload IDEA2APK APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: IDEA2APK-Android-APK
+          path: bin/*.apk
+          if-no-files-found: error
+          retention-days: 7
