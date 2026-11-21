@@ -315,6 +315,7 @@ class IDEA2APK(App):
         )
 
         root.add_widget(self.result_text)
+        self.result_text.bind(text=self.on_result_text_change)
 
         root.add_widget(
             self.make_button(
@@ -345,6 +346,10 @@ class IDEA2APK(App):
         )
 
         self.result_screen.add_widget(root)
+
+    def on_result_text_change(self, instance, value):
+        # Keep the editable result window as the single source of truth.
+        self.generated_code = value
 
     # PROJECT DATA
 
@@ -844,8 +849,14 @@ jobs:
         )
 
     def export_project_zip(self, *args):
-        if not self.generated_code:
-            self.message("Generate app code first.")
+        if not self.generated_code or not self.generated_is_app_code:
+            self.message("Generate APP CODE first. A blueprint cannot be exported as an APK build package.")
+            return
+
+        try:
+            compile(self.generated_code, "main.py", "exec")
+        except SyntaxError as error:
+            self.message("The edited code has a syntax error on line {}: {}".format(error.lineno, error.msg))
             return
 
         try:
