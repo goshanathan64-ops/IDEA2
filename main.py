@@ -11,6 +11,9 @@ from kivy.metrics import dp, sp
 from kivy.core.clipboard import Clipboard
 from kivy.utils import platform
 from kivy.clock import Clock
+from threading import Thread
+
+from github_builder import upload_and_dispatch
 
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.uix.boxlayout import BoxLayout
@@ -307,7 +310,14 @@ class IDEA2APK(App):
 
         root.add_widget(
             self.make_button(
-                "PREPARE APK BUILD",
+                "BUILD APK WITH GITHUB ACTIONS",
+                self.open_github_build
+            )
+        )
+
+        root.add_widget(
+            self.make_button(
+                "PREPARE APK BUILD (MANUAL)",
                 self.prepare_apk_build
             )
         )
@@ -870,6 +880,103 @@ jobs:
 
         except Exception as error:
             self.message("Copy failed: " + str(error))
+
+    # REAL APK BUILD THROUGH GITHUB ACTIONS
+
+    def open_github_build(self, *args):
+        if not self.generated_code:
+            self.message("Generate app code first.")
+            return
+
+        content = BoxLayout(
+            orientation="vertical",
+            padding=dp(12),
+            spacing=dp(8)
+        )
+        content.add_widget(Label(
+            text="Enter a GitHub repository you own or can write to.",
+            size_hint_y=None,
+            height=dp(48)
+        ))
+        self.github_repo_input = TextInput(
+            hint_text="username/repository",
+            multiline=False,
+            size_hint_y=None,
+            height=dp(48)
+        )
+        content.add_widget(self.github_repo_input)
+        content.add_widget(Label(
+            text="GitHub Personal Access Token (not saved)",
+            size_hint_y=None,
+            height=dp(35)
+        ))
+        self.github_token_input = TextInput(
+            hint_text="Paste token with Contents and Actions write access",
+            password=True,
+            multiline=False,
+            size_hint_y=None,
+            height=dp(48)
+        )
+        content.add_widget(self.github_token_input)
+        content.add_widget(Label(
+            text="The token is used only for this build and is not written to project files.",
+            size_hint_y=None,
+            height=dp(48)
+        ))
+        content.add_widget(self.make_button(
+            "UPLOAD PROJECT AND START APK BUILD",
+            self.start_github_build,
+            52
+        ))
+        content.add_widget(self.make_button(
+            "CANCEL",
+            lambda *_: self.github_build_popup.dismiss(),
+            42
+        ))
+        self.github_build_popup = Popup(
+            title="GitHub APK Builder",
+            content=content,
+            size_hint=(0.94, 0.72)
+        )
+        self.github_build_popup.open()
+
+    def start_github_build(self, *args):
+        repo = self.github_repo_input.text.strip()
+        token = self.github_token_input.text.strip()
+
+        if "/" not in repo or len(repo.split("/")) != 2:
+            self.message("Enter the repository as username/repository.")
+            return
+        if not token:
+            self.message("A GitHub token is required to upload and start the build.")
+            return
+
+        data = self.current_project or {"name": "MyBusiness"}
+        project = {
+            "name": data.get("name", "MyBusiness"),
+            "description": data.get("description", "")
+        }
+        code = self.generated_code
+        spec = self.create_buildozer_spec(project)
+        self.github_token_input.text = ""
+        self.github_build_popup.dismiss()
+        self.message("Uploading project to GitHub and starting the APK build. Please wait.")
+
+        def worker():
+            try:
+                result = upload_and_dispatch(token, repo, code, spec)
+                message = (
+                    "BUILD STARTED SUCCESSFULLY.\n\n"
+                    "Open this Actions page to monitor the build:\n"
+                    + result["actions_url"]
+                    + "\n\nWhen complete, download the Generated-Android-APK artifact."
+                )
+            except Exception as error:
+                message = "GitHub build could not start:\n" + str(error)
+
+            Clock.schedule_once(lambda _dt: self.message(message), 0)
+
+        Thread(target=worker, daemon=True).start()
 
     # PREPARE APK BUILD
 
