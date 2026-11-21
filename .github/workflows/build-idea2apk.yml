@@ -35,6 +35,14 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      # Keep the debug signing key stable between CI builds so future APKs
+      # can update the same installed package without a signing mismatch.
+      - name: Restore persistent debug signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: idea2apk-debug-signing-key-v1
+
       - name: Install Android build dependencies
         run: |
           sudo apt-get update
