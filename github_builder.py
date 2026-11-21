@@ -103,6 +103,12 @@ def upload_and_dispatch(token, repository, app_code, build_spec):
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
         raise ValueError("Repository must be written as owner/name.")
 
+    if repository.lower() == "goshanathan64-ops/idea2":
+        raise ValueError(
+            "Choose a separate empty repository for the generated app. "
+            "Do not use the IDEA2APK source repository."
+        )
+
     api_base = "https://api.github.com/repos/" + repository
     repo_info = _request(api_base, token)
     branch = repo_info.get("default_branch") or "main"
