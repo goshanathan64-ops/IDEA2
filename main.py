@@ -32,7 +32,7 @@ EXPORT_DIR = os.path.join(APP_DIR, "exports")
 class IDEA2APK(App):
 
     def build(self):
-        self.title = "IDEA2APK"
+        self.title = "IDEA2APK NEXT"
         self.projects = self.load_projects()
         self.current_project = None
         self.generated_code = ""
