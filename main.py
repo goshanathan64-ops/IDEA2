@@ -14,6 +14,8 @@ from kivy.clock import Clock
 from threading import Thread
 
 from github_builder import upload_and_dispatch
+from project_schema import normalize_project, validate_project
+from template_catalog import list_templates
 
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.uix.boxlayout import BoxLayout
@@ -121,6 +123,13 @@ class IDEA2APK(App):
             self.make_button(
                 "MY PROJECTS",
                 self.open_projects
+            )
+        )
+
+        layout.add_widget(
+            self.make_button(
+                "TEMPLATE GALLERY",
+                self.show_templates
             )
         )
 
@@ -341,7 +350,7 @@ class IDEA2APK(App):
             self.message("Please enter an app name.")
             return None
 
-        return {
+        data = {
             "id": (
                 self.current_project["id"]
                 if self.current_project
@@ -351,8 +360,17 @@ class IDEA2APK(App):
             "description": description,
             "target": self.target_input.text.strip(),
             "app_type": self.type_input.text.strip(),
-            "features": self.features_input.text.strip()
+            "features": self.features_input.text.strip(),
+            "category": self.type_input.text.strip().lower() or "business",
+            "template_id": "shop_inventory"
         }
+
+        data = normalize_project(data)
+        errors, _warnings = validate_project(data)
+        if errors:
+            self.message("\n".join(errors))
+            return None
+        return data
 
     # BLUEPRINT GENERATION
 
@@ -394,8 +412,10 @@ class IDEA2APK(App):
             self.result_text.text = code
             self.manager.current = "result"
             self.message(
-                "Generator Engine V2 created a functional SQLite-backed app. "
-                "Review the code, then export the ZIP or build the APK."
+                "Generated using the currently supported Shop & Inventory "
+                "template (SQLite local storage). Other template categories "
+                "are listed as planned and are not generated yet. "
+                "Review the code before exporting or building."
             )
 
         except Exception as error:
@@ -953,6 +973,41 @@ jobs:
             self.message(
                 "Preparation failed:\n" + str(error)
             )
+
+    # V3 TEMPLATE GALLERY
+
+    def show_templates(self, *args):
+        body = BoxLayout(
+            orientation="vertical",
+            padding=dp(10),
+            spacing=dp(8)
+        )
+        scroll = ScrollView()
+        content = BoxLayout(
+            orientation="vertical",
+            size_hint_y=None,
+            spacing=dp(8)
+        )
+        content.bind(minimum_height=content.setter("height"))
+
+        for template in list_templates():
+            status = "READY" if template["status"] == "ready" else "PLANNED"
+            description = (
+                template["name"] + " — " + status + "\n"
+                + template["description"]
+            )
+            content.add_widget(self.make_label(description, 72, 14))
+
+        scroll.add_widget(content)
+        body.add_widget(scroll)
+        close = self.make_button("CLOSE", lambda *_: popup.dismiss())
+        body.add_widget(close)
+        popup = Popup(
+            title="V3 TEMPLATE GALLERY",
+            content=body,
+            size_hint=(0.92, 0.82)
+        )
+        popup.open()
 
     # ABOUT AND NAVIGATION
 
