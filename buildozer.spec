@@ -9,7 +9,7 @@ source.include_exts = py,kv,png,jpg,jpeg,atlas,txt
 
 version = 0.1
 
-requirements = python3==3.11.5,hostpython3==3.11.5,kivy==2.3.0
+requirements = python3,kivy==2.3.0
 
 orientation = portrait
 fullscreen = 0
