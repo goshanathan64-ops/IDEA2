@@ -385,100 +385,21 @@ class IDEA2APK(App):
         if not data:
             return
 
-        app_name = re.sub(
-            r"[^A-Za-z0-9_]",
-            "",
-            data["name"].replace(" ", "_")
-        )
+        try:
+            from generator_engine import generate_app_code
 
-        if not app_name:
-            app_name = "MyBusiness"
-
-        description = data["description"]
-
-        features = [
-            item.strip()
-            for item in data["features"].split(",")
-            if item.strip()
-        ]
-
-        code = '''from kivy.app import App
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.label import Label
-from kivy.uix.button import Button
-from kivy.metrics import dp, sp
-
-
-class GeneratedApp(App):
-
-    def build(self):
-        self.title = APP_NAME
-
-        root = BoxLayout(
-            orientation="vertical",
-            padding=dp(20),
-            spacing=dp(12)
-        )
-
-        title = Label(
-            text=APP_NAME,
-            font_size=sp(25),
-            size_hint_y=None,
-            height=dp(65)
-        )
-
-        root.add_widget(title)
-
-        description = Label(
-            text=APP_DESCRIPTION,
-            font_size=sp(16)
-        )
-
-        root.add_widget(description)
-
-        self.feature_box = BoxLayout(
-            orientation="vertical",
-            spacing=dp(8)
-        )
-
-        root.add_widget(self.feature_box)
-
-        FEATURES
-
-        return root
-
-    def add_feature(self, feature):
-        button = Button(
-            text=feature,
-            size_hint_y=None,
-            height=dp(50)
-        )
-
-        self.feature_box.add_widget(button)
-
-
-if __name__ == "__main__":
-    GeneratedApp().run()
-'''
-
-        feature_code = "\n".join(
-            "        self.add_feature(" + repr(feature) + ")"
-            for feature in features
-        )
-
-        if not feature_code:
-            feature_code = (
-                '        self.add_feature("Welcome to your app")'
+            code = generate_app_code(data)
+            self.generated_code = code
+            self.current_project = data
+            self.result_text.text = code
+            self.manager.current = "result"
+            self.message(
+                "Generator Engine V2 created a functional SQLite-backed app. "
+                "Review the code, then export the ZIP or build the APK."
             )
 
-        code = code.replace("APP_NAME", repr(app_name))
-        code = code.replace("APP_DESCRIPTION", repr(description))
-        code = code.replace("        FEATURES", feature_code)
-
-        self.generated_code = code
-        self.current_project = data
-        self.result_text.text = code
-        self.manager.current = "result"
+        except Exception as error:
+            self.message("Code generation failed:\\n" + str(error))
 
     # SAVE AND LOAD PROJECTS
 
