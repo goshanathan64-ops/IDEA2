@@ -1,7 +1,7 @@
 [app]
 
 title = IDEA2APK NEXT
-package.name = idea2apknext
+package.name = idea2apkbuild6
 package.domain = com.nexgen
 
 source.dir = .
