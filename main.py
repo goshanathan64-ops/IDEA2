@@ -997,7 +997,7 @@ jobs:
             card = BoxLayout(
                 orientation="vertical",
                 size_hint_y=None,
-                height=dp(112),
+                height=dp(140),
                 spacing=dp(4)
             )
             card.add_widget(self.make_label(
