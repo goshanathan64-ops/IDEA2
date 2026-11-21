@@ -37,6 +37,7 @@ class IDEA2APK(App):
         self.title = "IDEA2APK NEXT"
         self.projects = self.load_projects()
         self.current_project = None
+        self.selected_template_id = "shop_inventory"
         self.generated_code = ""
 
         self.manager = ScreenManager()
@@ -362,7 +363,7 @@ class IDEA2APK(App):
             "app_type": self.type_input.text.strip(),
             "features": self.features_input.text.strip(),
             "category": self.type_input.text.strip().lower() or "business",
-            "template_id": "shop_inventory"
+            "template_id": self.selected_template_id or "shop_inventory"
         }
 
         data = normalize_project(data)
@@ -525,6 +526,7 @@ class IDEA2APK(App):
 
     def edit_project(self, project):
         self.current_project = project
+        self.selected_template_id = project.get("template_id", "shop_inventory")
 
         self.name_input.text = project.get("name", "")
         self.description_input.text = project.get("description", "")
@@ -991,23 +993,103 @@ jobs:
         content.bind(minimum_height=content.setter("height"))
 
         for template in list_templates():
-            status = "READY" if template["status"] == "ready" else "PLANNED"
-            description = (
-                template["name"] + " — " + status + "\n"
-                + template["description"]
+            status = "READY" if template["status"] == "ready" else "COMING SOON"
+            card = BoxLayout(
+                orientation="vertical",
+                size_hint_y=None,
+                height=dp(112),
+                spacing=dp(4)
             )
-            content.add_widget(self.make_label(description, 72, 14))
+            card.add_widget(self.make_label(
+                template["name"] + " — " + status,
+                38,
+                16
+            ))
+            card.add_widget(self.make_label(
+                template["description"],
+                38,
+                12
+            ))
+            card.add_widget(self.make_button(
+                "VIEW / SELECT TEMPLATE",
+                lambda _button, item=template: self.show_template_details(item),
+                38
+            ))
+            content.add_widget(card)
 
         scroll.add_widget(content)
         body.add_widget(scroll)
-        close = self.make_button("CLOSE", lambda *_: popup.dismiss())
-        body.add_widget(close)
         popup = Popup(
             title="V3 TEMPLATE GALLERY",
             content=body,
             size_hint=(0.92, 0.82)
         )
+        body.add_widget(self.make_button("CLOSE", lambda *_: popup.dismiss()))
         popup.open()
+
+    def show_template_details(self, template, *args):
+        ready = template.get("status") == "ready"
+        status = "READY TO USE" if ready else "COMING SOON — GENERATOR NOT READY"
+        supported = template.get("supported_features", [])
+        feature_text = (
+            "\\n".join("• " + item.replace("_", " ").title() for item in supported)
+            if supported else "No working features have been released for this template yet."
+        )
+
+        body = BoxLayout(
+            orientation="vertical",
+            padding=dp(12),
+            spacing=dp(8)
+        )
+        body.add_widget(self.make_label(template.get("name", "Template"), 42, 20))
+        body.add_widget(self.make_label(status, 36, 14))
+        body.add_widget(self.make_label(template.get("description", ""), 64, 13))
+        body.add_widget(self.make_label("SUPPORTED FEATURES", 32, 14))
+        body.add_widget(self.make_label(feature_text, 120, 12))
+
+        detail_popup = Popup(
+            title="TEMPLATE PREVIEW",
+            content=body,
+            size_hint=(0.92, 0.78)
+        )
+
+        if ready:
+            body.add_widget(self.make_button(
+                "USE THIS TEMPLATE",
+                lambda *_: self.apply_template(template, detail_popup),
+                48
+            ))
+        else:
+            body.add_widget(self.make_label(
+                "This template is visible in the gallery but cannot create projects yet.",
+                48,
+                12
+            ))
+
+        body.add_widget(self.make_button("BACK TO GALLERY", lambda *_: detail_popup.dismiss()))
+        detail_popup.open()
+
+    def apply_template(self, template, popup=None, *args):
+        if template.get("status") != "ready":
+            self.message("This template is not ready to use yet.")
+            return
+
+        self.selected_template_id = template["id"]
+        self.current_project = None
+        self.name_input.text = ""
+        self.description_input.text = template.get("description", "")
+        self.target_input.text = ""
+        self.type_input.text = template.get("category", "business").title()
+        self.features_input.text = ", ".join(template.get("supported_features", []))
+
+        if popup is not None:
+            popup.dismiss()
+
+        self.manager.current = "planner"
+        self.message(
+            template["name"] + " selected. Enter your app name and target users, "
+            "then generate the app code. Your project will use this template."
+        )
 
     # ABOUT AND NAVIGATION
 
