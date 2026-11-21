@@ -33,6 +33,7 @@ class IDEA2APK(App):
         self.projects = self.load_projects()
         self.current_project = None
         self.generated_code = ""
+        self.generated_is_app_code = False
 
         self.manager = ScreenManager()
 
@@ -192,6 +193,30 @@ class IDEA2APK(App):
         )
         form.add_widget(self.features_input)
 
+        # Optional details that complete the 16-section app blueprint.
+        self.extra_inputs = {}
+        extra_fields = [
+            ("logo_version", "Logo idea and app version", "Example: Blue and white logo; version 1.0"),
+            ("user_accounts", "User accounts and permissions", "Example: Owner login, staff accounts, customer accounts"),
+            ("screens", "Screens and navigation", "Example: Dashboard, products, sales, settings"),
+            ("database", "Database and data to store", "Example: Products, prices, stock, customers, sales"),
+            ("business_logic", "Business rules and workflows", "Example: Reduce stock automatically after each sale"),
+            ("design", "Design and branding", "Example: Green theme, large buttons, simple layout"),
+            ("notifications", "Notifications and reminders", "Example: Low-stock alerts and payment reminders"),
+            ("reports", "Reports and analytics", "Example: Daily sales, monthly profit, stock reports"),
+            ("connectivity", "Internet and offline requirements", "Example: Works offline; syncs when internet is available"),
+            ("security", "Security and data protection", "Example: PIN login, role permissions, backups"),
+            ("monetization", "Monetization and payments", "Example: Free app, subscriptions, mobile money"),
+            ("platforms", "Target platforms", "Example: Android phone and tablet"),
+            ("testing", "Testing and release requirements", "Example: Test adding products, sales, stock and reports")
+        ]
+
+        for key, heading, hint in extra_fields:
+            form.add_widget(self.make_label(heading, 35, 15))
+            field = self.make_input(hint, 72, True)
+            self.extra_inputs[key] = field
+            form.add_widget(field)
+
         form.add_widget(
             self.make_button(
                 "GENERATE BLUEPRINT",
@@ -283,13 +308,14 @@ class IDEA2APK(App):
         )
 
         self.result_text = TextInput(
-            readonly=True,
+            readonly=False,
             multiline=True,
             font_size=sp(12),
             size_hint_y=1
         )
 
         root.add_widget(self.result_text)
+        self.result_text.bind(text=self.on_result_text_change)
 
         root.add_widget(
             self.make_button(
@@ -307,8 +333,8 @@ class IDEA2APK(App):
 
         root.add_widget(
             self.make_button(
-                "PREPARE APK BUILD",
-                self.prepare_apk_build
+                "BUILD APK (CREATE BUILD PACKAGE)",
+                self.build_apk
             )
         )
 
@@ -320,6 +346,10 @@ class IDEA2APK(App):
         )
 
         self.result_screen.add_widget(root)
+
+    def on_result_text_change(self, instance, value):
+        # Keep the editable result window as the single source of truth.
+        self.generated_code = value
 
     # PROJECT DATA
 
@@ -341,7 +371,11 @@ class IDEA2APK(App):
             "description": description,
             "target": self.target_input.text.strip(),
             "app_type": self.type_input.text.strip(),
-            "features": self.features_input.text.strip()
+            "features": self.features_input.text.strip(),
+            **{
+                key: field.text.strip()
+                for key, field in self.extra_inputs.items()
+            }
         }
 
     # BLUEPRINT GENERATION
@@ -352,17 +386,36 @@ class IDEA2APK(App):
         if not data:
             return
 
-        blueprint = (
-            "IDEA2APK APP BLUEPRINT\n\n"
-            "APP NAME: " + data["name"] + "\n\n"
-            "DESCRIPTION: " + data["description"] + "\n\n"
-            "TARGET USERS: " + data["target"] + "\n\n"
-            "APP TYPE: " + data["app_type"] + "\n\n"
-            "FEATURES:\n" + data["features"] + "\n\n"
-            "NEXT STEP: Generate the application code."
-        )
+        def value(key):
+            return data.get(key, "").strip() or "Not specified"
+
+        sections = [
+            ("1. APP IDENTITY", "Name: " + value("name") + "\nDescription: " + value("description") + "\nLogo and version: " + value("logo_version")),
+            ("2. TARGET USERS", value("target")),
+            ("3. APP CATEGORY", value("app_type")),
+            ("4. CORE FEATURES", value("features")),
+            ("5. USER ACCOUNTS AND PERMISSIONS", value("user_accounts")),
+            ("6. SCREENS AND NAVIGATION", value("screens")),
+            ("7. DATABASE AND DATA STORAGE", value("database")),
+            ("8. BUSINESS LOGIC AND WORKFLOWS", value("business_logic")),
+            ("9. DESIGN AND BRANDING", value("design")),
+            ("10. NOTIFICATIONS AND REMINDERS", value("notifications")),
+            ("11. REPORTS AND ANALYTICS", value("reports")),
+            ("12. INTERNET AND OFFLINE REQUIREMENTS", value("connectivity")),
+            ("13. SECURITY AND DATA PROTECTION", value("security")),
+            ("14. MONETIZATION AND PAYMENTS", value("monetization")),
+            ("15. TARGET PLATFORMS", value("platforms")),
+            ("16. TESTING AND RELEASE REQUIREMENTS", value("testing"))
+        ]
+
+        blueprint = "IDEA2APK COMPLETE APP BLUEPRINT\n"
+        blueprint += "================================\n\n"
+        for heading, details in sections:
+            blueprint += heading + "\n" + details + "\n\n"
+        blueprint += "NEXT STEP: Review this blueprint, then generate the application code."
 
         self.generated_code = blueprint
+        self.generated_is_app_code = False
         self.current_project = data
         self.result_text.text = blueprint
         self.manager.current = "result"
@@ -371,101 +424,180 @@ class IDEA2APK(App):
 
     def generate_app_code(self, *args):
         data = self.get_project_data()
-
         if not data:
             return
 
-        app_name = re.sub(
-            r"[^A-Za-z0-9_]",
-            "",
-            data["name"].replace(" ", "_")
-        )
-
-        if not app_name:
-            app_name = "MyBusiness"
-
-        description = data["description"]
-
-        features = [
-            item.strip()
-            for item in data["features"].split(",")
+        # Generate a reusable local-data app shell from the user's own feature list.
+        feature_names = [
+            item.strip() for item in data.get("features", "").split(",")
             if item.strip()
         ]
+        if not feature_names:
+            feature_names = ["General Records", "Tasks", "Customers"]
 
-        code = '''from kivy.app import App
+        # Keep the generated navigation manageable on a phone.
+        feature_names = feature_names[:12]
+        app_title = data["name"].strip()
+        description = data.get("description", "").strip()
+
+        code = r'''# Generated by IDEA2APK — blueprint-driven starter app
+import os
+import json
+from datetime import datetime
+
+from kivy.app import App
+from kivy.metrics import dp, sp
 from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.scrollview import ScrollView
 from kivy.uix.label import Label
 from kivy.uix.button import Button
-from kivy.metrics import dp, sp
+from kivy.uix.textinput import TextInput
+from kivy.uix.popup import Popup
+
+APP_TITLE = __APP_TITLE__
+APP_DESCRIPTION = __APP_DESCRIPTION__
+FEATURES = __FEATURES__
 
 
 class GeneratedApp(App):
-
     def build(self):
-        self.title = APP_NAME
+        self.title = APP_TITLE
+        self.data_file = os.path.join(self.user_data_dir, "app_records.json")
+        self.records = self.load_records()
+        self.active_feature = None
 
-        root = BoxLayout(
-            orientation="vertical",
-            padding=dp(20),
-            spacing=dp(12)
-        )
+        root = BoxLayout(orientation="vertical", padding=dp(10), spacing=dp(8))
+        heading = Label(text=APP_TITLE, size_hint_y=None, height=dp(48),
+                        font_size=sp(22), bold=True)
+        root.add_widget(heading)
+        self.status = Label(text=APP_DESCRIPTION or "Your app workspace",
+                            size_hint_y=None, height=dp(42), font_size=sp(12))
+        root.add_widget(self.status)
 
-        title = Label(
-            text=APP_NAME,
-            font_size=sp(25),
-            size_hint_y=None,
-            height=dp(65)
-        )
-
-        root.add_widget(title)
-
-        description = Label(
-            text=APP_DESCRIPTION,
-            font_size=sp(16)
-        )
-
-        root.add_widget(description)
-
-        self.feature_box = BoxLayout(
-            orientation="vertical",
-            spacing=dp(8)
-        )
-
-        root.add_widget(self.feature_box)
-
-        FEATURES
-
+        scroll = ScrollView()
+        self.content = BoxLayout(orientation="vertical", spacing=dp(7),
+                                 size_hint_y=None)
+        self.content.bind(minimum_height=self.content.setter("height"))
+        scroll.add_widget(self.content)
+        root.add_widget(scroll)
+        self.show_home()
         return root
 
-    def add_feature(self, feature):
-        button = Button(
-            text=feature,
-            size_hint_y=None,
-            height=dp(50)
-        )
+    def load_records(self):
+        try:
+            with open(self.data_file, "r", encoding="utf-8") as handle:
+                saved = json.load(handle)
+            if isinstance(saved, dict):
+                return saved
+        except (OSError, ValueError, TypeError):
+            pass
+        return {feature: [] for feature in FEATURES}
 
-        self.feature_box.add_widget(button)
+    def save_records(self):
+        try:
+            os.makedirs(self.user_data_dir, exist_ok=True)
+            with open(self.data_file, "w", encoding="utf-8") as handle:
+                json.dump(self.records, handle, indent=2, ensure_ascii=False)
+            self.status.text = "Saved on this device"
+            return True
+        except Exception as error:
+            self.status.text = "Save error: " + str(error)
+            return False
+
+    def clear_content(self):
+        self.content.clear_widgets()
+
+    def add_label(self, text, height=38, size=15):
+        label = Label(text=str(text), size_hint_y=None, height=dp(height),
+                      font_size=sp(size), halign="left", valign="middle")
+        label.bind(size=lambda obj, value: setattr(obj, "text_size", (value[0], None)))
+        self.content.add_widget(label)
+
+    def add_button(self, text, callback):
+        button = Button(text=text, size_hint_y=None, height=dp(46),
+                        font_size=sp(14))
+        button.bind(on_release=lambda instance: callback())
+        self.content.add_widget(button)
+
+    def show_home(self):
+        self.clear_content()
+        self.add_label("APP WORKSPACE", 42, 19)
+        self.add_label("Choose a feature to manage its records.", 40, 13)
+        for feature in FEATURES:
+            self.add_button(feature, lambda selected=feature: self.show_feature(selected))
+        self.add_label("Your records are stored locally on this device.", 44, 12)
+
+    def show_feature(self, feature):
+        self.active_feature = feature
+        self.clear_content()
+        self.add_label(feature.upper(), 42, 19)
+        self.add_button("ADD NEW RECORD", self.add_record)
+        entries = self.records.setdefault(feature, [])
+        if not entries:
+            self.add_label("No records yet. Tap ADD NEW RECORD to begin.", 48, 13)
+        for index, entry in enumerate(entries):
+            title = entry.get("title", "Untitled")
+            details = entry.get("details", "")
+            self.add_label(str(index + 1) + ". " + title, 34, 15)
+            if details:
+                self.add_label(details, 48, 12)
+            self.add_label("Created: " + entry.get("created", ""), 28, 11)
+            self.add_button("DELETE RECORD " + str(index + 1),
+                            lambda position=index: self.delete_record(position))
+        self.add_button("BACK TO HOME", self.show_home)
+
+    def add_record(self):
+        panel = BoxLayout(orientation="vertical", padding=dp(10), spacing=dp(8))
+        title_field = TextInput(hint_text="Record title", multiline=False,
+                                size_hint_y=None, height=dp(44))
+        details_field = TextInput(hint_text="Details (optional)", multiline=True,
+                                  size_hint_y=None, height=dp(100))
+        panel.add_widget(title_field)
+        panel.add_widget(details_field)
+        controls = BoxLayout(size_hint_y=None, height=dp(46), spacing=dp(8))
+        popup = Popup(title="Add " + str(self.active_feature), content=panel,
+                      size_hint=(0.9, None), height=dp(300))
+        save_button = Button(text="SAVE")
+        cancel_button = Button(text="CANCEL")
+        controls.add_widget(save_button)
+        controls.add_widget(cancel_button)
+        panel.add_widget(controls)
+
+        def submit(instance):
+            title = title_field.text.strip()
+            if not title:
+                self.status.text = "Enter a title before saving."
+                return
+            self.records.setdefault(self.active_feature, []).append({
+                "title": title,
+                "details": details_field.text.strip(),
+                "created": datetime.now().strftime("%Y-%m-%d %H:%M")
+            })
+            popup.dismiss()
+            if self.save_records():
+                self.show_feature(self.active_feature)
+
+        save_button.bind(on_release=submit)
+        cancel_button.bind(on_release=lambda instance: popup.dismiss())
+        popup.open()
+
+    def delete_record(self, index):
+        entries = self.records.setdefault(self.active_feature, [])
+        if 0 <= index < len(entries):
+            entries.pop(index)
+            self.save_records()
+            self.show_feature(self.active_feature)
 
 
 if __name__ == "__main__":
     GeneratedApp().run()
 '''
-
-        feature_code = "\n".join(
-            "        self.add_feature(" + repr(feature) + ")"
-            for feature in features
-        )
-
-        if not feature_code:
-            feature_code = (
-                '        self.add_feature("Welcome to your app")'
-            )
-
-        code = code.replace("APP_NAME", repr(app_name))
-        code = code.replace("APP_DESCRIPTION", repr(description))
-        code = code.replace("        FEATURES", feature_code)
+        code = code.replace("__APP_TITLE__", repr(app_title))
+        code = code.replace("__APP_DESCRIPTION__", repr(description))
+        code = code.replace("__FEATURES__", repr(feature_names))
 
         self.generated_code = code
+        self.generated_is_app_code = True
         self.current_project = data
         self.result_text.text = code
         self.manager.current = "result"
@@ -510,6 +642,10 @@ if __name__ == "__main__":
 
         if not data:
             return
+
+        # Persist the generated blueprint/code together with the planner fields.
+        data["generated_code"] = self.generated_code
+        data["generated_is_app_code"] = bool(self.generated_is_app_code)
 
         found = False
 
@@ -580,6 +716,12 @@ if __name__ == "__main__":
         self.target_input.text = project.get("target", "")
         self.type_input.text = project.get("app_type", "")
         self.features_input.text = project.get("features", "")
+        for key, field in self.extra_inputs.items():
+            field.text = project.get(key, "")
+
+        self.generated_code = project.get("generated_code", "")
+        self.generated_is_app_code = bool(project.get("generated_is_app_code", False))
+        self.result_text.text = self.generated_code
 
         self.manager.current = "planner"
 
@@ -596,14 +738,23 @@ if __name__ == "__main__":
     # BUILD SPEC GENERATOR
 
     def create_buildozer_spec(self, data):
+        safe_title = re.sub(
+            r"[\r\n]+",
+            " ",
+            data.get("name", "MyBusiness")
+        ).strip()[:50] or "MyBusiness"
+
         package_name = re.sub(
             r"[^a-z0-9]",
             "",
-            data["name"].lower().replace(" ", "")
+            safe_title.lower()
         )
 
         if not package_name:
             package_name = "mybusiness"
+        if not package_name[0].isalpha():
+            package_name = "app" + package_name
+        package_name = package_name[:50]
 
         return """[app]
 title = {title}
@@ -622,8 +773,8 @@ fullscreen = 0
 
 android.api = 34
 android.minapi = 21
-android.ndk = 25b
-p4a.branch = v2024.01.21
+android.ndk = 28c
+p4a.commit = 0382d27de2f7315ed98e74884bafb30365decdee
 android.build_tools_version = 34.0.0
 android.accept_sdk_license = True
 
@@ -636,7 +787,7 @@ android.permissions = INTERNET
 log_level = 2
 warn_on_root = 1
 """.format(
-            title=data["name"],
+            title=safe_title,
             package=package_name
         )
 
@@ -698,8 +849,14 @@ jobs:
         )
 
     def export_project_zip(self, *args):
-        if not self.generated_code:
-            self.message("Generate app code first.")
+        if not self.generated_code or not self.generated_is_app_code:
+            self.message("Generate APP CODE first. A blueprint cannot be exported as an APK build package.")
+            return
+
+        try:
+            compile(self.generated_code, "main.py", "exec")
+        except SyntaxError as error:
+            self.message("The edited code has a syntax error on line {}: {}".format(error.lineno, error.msg))
             return
 
         try:
@@ -740,10 +897,17 @@ jobs:
                     "# " + data["name"] + "\n\n"
                     + data.get("description", "") + "\n\n"
                     + "## Build the Android APK\n"
-                    + "1. Upload all extracted files to a new GitHub repository.\n"
-                    + "2. Open the Actions tab.\n"
-                    + "3. Run the Build Android APK workflow.\n"
-                    + "4. Download the Generated-Android-APK artifact.\n"
+                    + "This ZIP is a build package, not the APK itself.\n\n"
+                    + "1. Create a GitHub repository.\n"
+                    + "2. Extract this ZIP and upload all files, including the hidden .github folder.\n"
+                    + "3. Commit the files to the main branch.\n"
+                    + "4. Open the repository Actions tab.\n"
+                    + "5. Select Build Android APK, then choose Run workflow.\n"
+                    + "6. Wait for the build to finish successfully.\n"
+                    + "7. Open the completed run and download Generated-Android-APK.\n"
+                    + "8. Extract the downloaded artifact and install the APK on Android.\n\n"
+                    + "Security: do not put passwords, API keys or private information in this project.\n"
+                    + "On a public repository, uploaded source code is visible to everyone.\n"
                 )
 
                 archive.writestr(
@@ -849,7 +1013,16 @@ jobs:
                 output_stream.close()
 
             self.message(
-                "SUCCESS!\\n\\nProject ZIP saved to the location you selected:\\n"
+                "BUILD PACKAGE SAVED\n\n"
+                "This ZIP is not the APK yet. GitHub Actions must build it.\n\n"
+                "Next steps:\n"
+                "1. Extract the ZIP.\n"
+                "2. Upload all files, including the hidden .github folder, to a GitHub repository.\n"
+                "3. Commit the files to the main branch.\n"
+                "4. Open Actions > Build Android APK > Run workflow.\n"
+                "5. When the run succeeds, download Generated-Android-APK.\n"
+                "6. Extract the artifact and install the APK.\n\n"
+                "Saved as: "
                 + os.path.basename(self._pending_export_path)
             )
 
@@ -870,6 +1043,26 @@ jobs:
 
         except Exception as error:
             self.message("Copy failed: " + str(error))
+
+    # BUILD APK PACKAGE
+
+    def build_apk(self, *args):
+        """Create a complete GitHub Actions build package for the generated app.
+
+        This prepares the project for a remote APK build. It does not compile
+        the APK on the phone; GitHub Actions performs that build after upload.
+        """
+        if not self.generated_code or not self.generated_is_app_code:
+            self.message("Generate APP CODE first. A blueprint cannot be built as an APK.")
+            return
+
+        data = self.current_project or {}
+        if not data.get("name", "").strip():
+            self.message("Please enter and generate an app name first.")
+            return
+
+        # Reuse the existing ZIP export and Android system save picker.
+        self.export_project_zip(*args)
 
     # PREPARE APK BUILD
 
