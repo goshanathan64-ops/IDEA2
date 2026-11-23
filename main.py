@@ -38,6 +38,7 @@ class IDEA2APK(App):
         self.projects = self.load_projects()
         self.current_project = None
         self.selected_template_id = "shop_inventory"
+        self.blueprint_text = ""
         self.generated_code = ""
 
         self.manager = ScreenManager()
@@ -304,33 +305,32 @@ class IDEA2APK(App):
 
         root.add_widget(self.result_text)
 
-        root.add_widget(
-            self.make_button(
-                "EXPORT PROJECT ZIP",
-                self.export_project_zip
-            )
+        self.export_button = self.make_button(
+            "EXPORT PROJECT ZIP",
+            self.export_project_zip
+        )
+        self.copy_button = self.make_button(
+            "SHARE GENERATED CODE (COPY)",
+            self.copy_generated_code
+        )
+        self.github_build_button = self.make_button(
+            "BUILD APK WITH GITHUB ACTIONS",
+            self.open_github_build
+        )
+        self.manual_build_button = self.make_button(
+            "PREPARE APK BUILD (MANUAL)",
+            self.prepare_apk_build
         )
 
-        root.add_widget(
-            self.make_button(
-                "SHARE GENERATED CODE (COPY)",
-                self.copy_generated_code
-            )
-        )
+        for action_button in (
+            self.export_button,
+            self.copy_button,
+            self.github_build_button,
+            self.manual_build_button
+        ):
+            root.add_widget(action_button)
 
-        root.add_widget(
-            self.make_button(
-                "BUILD APK WITH GITHUB ACTIONS",
-                self.open_github_build
-            )
-        )
-
-        root.add_widget(
-            self.make_button(
-                "PREPARE APK BUILD (MANUAL)",
-                self.prepare_apk_build
-            )
-        )
+        self.refresh_result_actions()
 
         root.add_widget(
             self.make_button(
@@ -373,6 +373,31 @@ class IDEA2APK(App):
             return None
         return data
 
+    # GENERATED OUTPUT SAFETY
+
+    def has_valid_app_code(self):
+        """Return True only when generated_code is syntactically valid Python."""
+        if not isinstance(self.generated_code, str) or not self.generated_code.strip():
+            return False
+
+        try:
+            compile(self.generated_code, "<idea2apk-generated-app>", "exec")
+            return True
+        except (SyntaxError, TypeError, ValueError):
+            return False
+
+    def refresh_result_actions(self):
+        """Keep export/build actions unavailable until valid app source exists."""
+        ready = self.has_valid_app_code()
+        for button in (
+            getattr(self, "export_button", None),
+            getattr(self, "copy_button", None),
+            getattr(self, "github_build_button", None),
+            getattr(self, "manual_build_button", None)
+        ):
+            if button is not None:
+                button.disabled = not ready
+
     # BLUEPRINT GENERATION
 
     def generate_blueprint(self, *args):
@@ -391,9 +416,11 @@ class IDEA2APK(App):
             "NEXT STEP: Generate the application code."
         )
 
-        self.generated_code = blueprint
+        self.blueprint_text = blueprint
+        self.generated_code = ""
         self.current_project = data
         self.result_text.text = blueprint
+        self.refresh_result_actions()
         self.manager.current = "result"
 
     # APP CODE GENERATION
@@ -408,9 +435,16 @@ class IDEA2APK(App):
             from generator_engine import generate_app_code
 
             code = generate_app_code(data)
+            if not isinstance(code, str) or not code.strip():
+                raise ValueError("The generator returned empty application code.")
+
+            compile(code, "<idea2apk-generated-app>", "exec")
+
             self.generated_code = code
+            self.blueprint_text = ""
             self.current_project = data
             self.result_text.text = code
+            self.refresh_result_actions()
             self.manager.current = "result"
             self.message(
                 "Generated using the currently supported Shop & Inventory "
@@ -420,6 +454,8 @@ class IDEA2APK(App):
             )
 
         except Exception as error:
+            self.generated_code = ""
+            self.refresh_result_actions()
             self.message("Code generation failed:\\n" + str(error))
 
     # SAVE AND LOAD PROJECTS
@@ -651,8 +687,9 @@ jobs:
         )
 
     def export_project_zip(self, *args):
-        if not self.generated_code:
-            self.message("Generate app code first.")
+        if not self.has_valid_app_code():
+            self.message("A valid generated app is required. Generate app code first; a blueprint cannot be exported as an APK project.")
+            self.refresh_result_actions()
             return
 
         try:
@@ -813,8 +850,9 @@ jobs:
     # COPY GENERATED CODE
 
     def copy_generated_code(self, *args):
-        if not self.generated_code:
-            self.message("Generate app code first.")
+        if not self.has_valid_app_code():
+            self.message("Generate valid app code first. A blueprint is not application source.")
+            self.refresh_result_actions()
             return
 
         try:
@@ -827,8 +865,9 @@ jobs:
     # REAL APK BUILD THROUGH GITHUB ACTIONS
 
     def open_github_build(self, *args):
-        if not self.generated_code:
-            self.message("Generate app code first.")
+        if not self.has_valid_app_code():
+            self.message("Generate valid app code before starting an APK build. A blueprint cannot be built.")
+            self.refresh_result_actions()
             return
 
         content = BoxLayout(
@@ -884,6 +923,11 @@ jobs:
         self.github_build_popup.open()
 
     def start_github_build(self, *args):
+        if not self.has_valid_app_code():
+            self.message("Build stopped: valid generated app code is missing.")
+            self.refresh_result_actions()
+            return
+
         repo = self.github_repo_input.text.strip()
         token = self.github_token_input.text.strip()
 
@@ -924,8 +968,9 @@ jobs:
     # PREPARE APK BUILD
 
     def prepare_apk_build(self, *args):
-        if not self.generated_code:
-            self.message("Generate app code first.")
+        if not self.has_valid_app_code():
+            self.message("Generate valid app code first. A blueprint cannot be prepared as an APK project.")
+            self.refresh_result_actions()
             return
 
         try:
