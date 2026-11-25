@@ -320,7 +320,7 @@ class IDEA2APK(App):
 
         root.add_widget(
             self.make_button(
-                "BUILD APK WITH GITHUB ACTIONS",
+                "BUILD APK (AUTO-FIX ENABLED)",
                 self.open_github_build
             )
         )
@@ -903,13 +903,13 @@ jobs:
         spec = self.create_buildozer_spec(project)
         self.github_token_input.text = ""
         self.github_build_popup.dismiss()
-        self.message("Uploading project to GitHub and starting the APK build. Please wait.")
+        self.message("Uploading project. The build will check generated Python code, detect supported Android SDK errors, and retry safe repairs up to three times.")
 
         def worker():
             try:
                 result = upload_and_dispatch(token, repo, code, spec)
                 message = (
-                    "BUILD STARTED SUCCESSFULLY.\n\n"
+                    "BUILD STARTED WITH AUTO-FIX ENABLED.\n\n"
                     "Open this Actions page to monitor the build:\n"
                     + result["actions_url"]
                     + "\n\nWhen complete, download the Generated-Android-APK artifact."
