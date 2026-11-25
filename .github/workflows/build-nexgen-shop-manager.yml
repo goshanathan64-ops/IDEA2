@@ -52,7 +52,6 @@ jobs:
           "$TOOLS_DIR/latest/bin/sdkmanager" --sdk_root="$SDK_ROOT" "platform-tools" "platforms;android-34" "build-tools;34.0.0"
           test -x "$SDK_ROOT/build-tools/34.0.0/aidl"
           "$TOOLS_DIR/latest/bin/sdkmanager" --sdk_root="$SDK_ROOT" --version
-          "$SDK_ROOT/build-tools/34.0.0/aidl" --version
       - name: Check Python syntax
         working-directory: apps/nexgen_shop_manager
         run: python -m py_compile main.py
