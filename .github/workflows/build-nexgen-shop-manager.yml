@@ -33,6 +33,14 @@ jobs:
         run: |
           python -m pip install --upgrade pip setuptools wheel
           python -m pip install buildozer==1.5.0 cython==0.29.33 virtualenv
+      - name: Set up Android SDK and install required tools
+        uses: android-actions/setup-android@v3
+      - name: Accept Android SDK licences and install Build Tools
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          test -x "$ANDROID_HOME/build-tools/34.0.0/aidl"
+          echo "$ANDROID_HOME/build-tools/34.0.0" >> "$GITHUB_PATH"
       - name: Check Python syntax
         working-directory: apps/nexgen_shop_manager
         run: python -m py_compile main.py
