@@ -1,5 +1,6 @@
 import base64
 import json
+import os
 import re
 import urllib.error
 import urllib.request
@@ -115,7 +116,7 @@ def upload_and_dispatch(token, repository, app_code, build_spec):
 
     files = [
         (".github/workflows/build-apk.yml", WORKFLOW),
-        ("auto_fixer.py", _AUTO_FIXER_SOURCE),
+        ("auto_fixer.py", open(os.path.join(os.path.dirname(__file__), "auto_fixer.py"), encoding="utf-8").read()),
         ("main.py", app_code),
         ("buildozer.spec", build_spec),
         ("requirements.txt", "buildozer==1.5.0\ncython==0.29.33\nvirtualenv\n"),
