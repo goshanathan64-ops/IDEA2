@@ -115,11 +115,11 @@ def repair_python_source(source_path):
         return False, "Generated Python file was not found."
 
     original = path.read_text(encoding="utf-8-sig")
-    repaired = original.replace("\\r\\n", "\\n").replace("\\r", "\\n")
+    repaired = original.replace("\r\n", "\n").replace("\r", "\n")
     lines = repaired.splitlines()
     fence = chr(96) * 3
     if len(lines) >= 2 and lines[0].strip().startswith(fence) and lines[-1].strip() == fence:
-        repaired = "\\n".join(lines[1:-1]) + "\\n"
+        repaired = "\n".join(lines[1:-1]) + "\n"
 
     if repaired == original:
         return False, "No safe source-code cleanup rule matched."
