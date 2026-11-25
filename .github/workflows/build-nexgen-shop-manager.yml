@@ -28,19 +28,31 @@ jobs:
       - name: Install Android build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git zip unzip autoconf automake libtool pkg-config zlib1g-dev libncurses5-dev libffi-dev libssl-dev libltdl-dev cmake
+          sudo apt-get install -y curl git zip unzip autoconf automake libtool pkg-config zlib1g-dev libncurses5-dev libffi-dev libssl-dev libltdl-dev cmake
       - name: Install Buildozer
         run: |
           python -m pip install --upgrade pip setuptools wheel
           python -m pip install buildozer==1.5.0 cython==0.29.33 virtualenv
-      - name: Set up Android SDK and install required tools
-        uses: android-actions/setup-android@v3
-      - name: Accept Android SDK licences and install Build Tools
+      - name: Install Android command-line tools and SDK packages
         run: |
-          yes | sdkmanager --licenses
-          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
-          test -x "$ANDROID_HOME/build-tools/34.0.0/aidl"
-          echo "$ANDROID_HOME/build-tools/34.0.0" >> "$GITHUB_PATH"
+          set -e
+          SDK_ROOT="$RUNNER_TEMP/android-sdk"
+          TOOLS_DIR="$SDK_ROOT/cmdline-tools"
+          mkdir -p "$TOOLS_DIR"
+          curl -fsSL "https://dl.google.com/android/repository/commandlinetools-linux-12266719_latest.zip" -o "$RUNNER_TEMP/android-commandlinetools.zip"
+          unzip -q "$RUNNER_TEMP/android-commandlinetools.zip" -d "$RUNNER_TEMP/android-commandlinetools"
+          mkdir -p "$TOOLS_DIR/latest"
+          mv "$RUNNER_TEMP/android-commandlinetools/cmdline-tools/"* "$TOOLS_DIR/latest/"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "$TOOLS_DIR/latest/bin" >> "$GITHUB_PATH"
+          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+          echo "$SDK_ROOT/build-tools/34.0.0" >> "$GITHUB_PATH"
+          yes | "$TOOLS_DIR/latest/bin/sdkmanager" --sdk_root="$SDK_ROOT" --licenses
+          "$TOOLS_DIR/latest/bin/sdkmanager" --sdk_root="$SDK_ROOT" "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          test -x "$SDK_ROOT/build-tools/34.0.0/aidl"
+          "$TOOLS_DIR/latest/bin/sdkmanager" --sdk_root="$SDK_ROOT" --version
+          "$SDK_ROOT/build-tools/34.0.0/aidl" --version
       - name: Check Python syntax
         working-directory: apps/nexgen_shop_manager
         run: python -m py_compile main.py
