@@ -28,7 +28,7 @@ class AutoFixerTests(unittest.TestCase):
     def test_removes_accidental_markdown_code_fence_safely(self):
         with tempfile.TemporaryDirectory() as folder:
             source = Path(folder) / "main.py"
-            source.write_text("''' + String.fromCharCode(96).repeat(3) + 'python\\nprint(1)\\n' + String.fromCharCode(96).repeat(3) + '\\n", encoding="utf-8")
+            source.write_text(f"{chr(96) * 3}python\\nprint(1)\\n{chr(96) * 3}\\n", encoding="utf-8")
             repaired, message = repair_python_source(source)
             self.assertTrue(repaired)
             self.assertEqual(source.read_text(encoding="utf-8"), "print(1)\\n")
