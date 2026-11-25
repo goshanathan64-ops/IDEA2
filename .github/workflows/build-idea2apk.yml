@@ -66,8 +66,8 @@ jobs:
           python -m compileall -q main.py project_schema.py template_catalog.py generator_engine.py github_builder.py
           python -m unittest discover -s tests -v
 
-      - name: Build debug APK
-        run: buildozer -v android debug
+      - name: Build APK with automatic repair
+        run: python auto_fixer.py --build --max-attempts 3
 
       - name: Upload IDEA2APK APK
         uses: actions/upload-artifact@v4
