@@ -41,8 +41,8 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           python -m pip install buildozer==1.5.0 cython==0.29.33 virtualenv
 
-      - name: Build debug APK
-        run: buildozer -v android debug
+      - name: Build APK with automatic repair
+        run: python auto_fixer.py --build --max-attempts 3
 
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
@@ -115,6 +115,7 @@ def upload_and_dispatch(token, repository, app_code, build_spec):
 
     files = [
         (".github/workflows/build-apk.yml", WORKFLOW),
+        ("auto_fixer.py", _AUTO_FIXER_SOURCE),
         ("main.py", app_code),
         ("buildozer.spec", build_spec),
         ("requirements.txt", "buildozer==1.5.0\ncython==0.29.33\nvirtualenv\n"),
