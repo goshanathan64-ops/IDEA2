@@ -107,6 +107,38 @@ def repair_android_sdk(kind, log_text=""):
     return False, "Android SDK repair did not complete:\n" + detail
 
 
+
+def repair_python_source(source_path):
+    """Apply only provably safe cleanup, then verify Python syntax."""
+    path = Path(source_path)
+    if not path.is_file():
+        return False, "Generated Python file was not found."
+
+    original = path.read_text(encoding="utf-8-sig")
+    repaired = original.replace("\\r\\n", "\\n").replace("\\r", "\\n")
+    lines = repaired.splitlines()
+    fence = chr(96) * 3
+    if len(lines) >= 2 and lines[0].strip().startswith(fence) and lines[-1].strip() == fence:
+        repaired = "\\n".join(lines[1:-1]) + "\\n"
+
+    if repaired == original:
+        return False, "No safe source-code cleanup rule matched."
+
+    try:
+        compile(repaired, str(path), "exec")
+    except SyntaxError as error:
+        return False, "Safe cleanup did not resolve the syntax error: " + str(error)
+
+    backup = path.with_suffix(path.suffix + ".autofix.bak")
+    if not backup.exists():
+        backup.write_text(original, encoding="utf-8")
+    temporary = path.with_suffix(path.suffix + ".autofix.tmp")
+    temporary.write_text(repaired, encoding="utf-8")
+    temporary.replace(path)
+    return True, "Removed an accidental Markdown wrapper/BOM or normalized line endings. Original saved as " + backup.name + "."
+
+
+
 def run_build(max_attempts=MAX_ATTEMPTS):
     attempts = max(1, min(int(max_attempts), MAX_ATTEMPTS))
     log_path = Path("idea2apk-build.log")
@@ -139,7 +171,10 @@ def run_build(max_attempts=MAX_ATTEMPTS):
 
         if attempt >= attempts:
             break
-        repaired, message = repair_android_sdk(kind, log_text)
+        if kind == "python_source_error":
+            repaired, message = repair_python_source("main.py")
+        else:
+            repaired, message = repair_android_sdk(kind, log_text)
         print("IDEA2APK_AUTO_FIX: " + message, flush=True)
         if not repaired:
             break
@@ -167,15 +202,17 @@ def main():
         print("ERROR: generated main.py was not found.", file=sys.stderr)
         return 2
     try:
-        compile(source.read_text(encoding="utf-8"), str(source), "exec")
+        compile(source.read_text(encoding="utf-8-sig"), str(source), "exec")
     except (SyntaxError, UnicodeError) as error:
-        print(
-            "AUTO-FIX STOPPED: generated Python source has a syntax/encoding "
-            "problem that cannot be safely rewritten by deterministic rules: "
-            + str(error),
-            file=sys.stderr,
-        )
-        return 2
+        repaired, message = repair_python_source(source)
+        print("IDEA2APK_SOURCE_AUTO_FIX: " + message, flush=True)
+        if not repaired:
+            print(
+                "AUTO-FIX STOPPED: this source error needs an AI/code review; "
+                "the original file was preserved. " + str(error),
+                file=sys.stderr,
+            )
+            return 2
 
     return run_build(args.max_attempts)
 
