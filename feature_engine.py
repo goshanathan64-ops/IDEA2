@@ -82,6 +82,50 @@ def validate_feature_coverage(source, requested_features):
     return {"implemented": implemented, "missing": missing, "complete": not missing}
 
 
+def repair_generated_source(source, requested_features, regenerate_callback=None):
+    """Attempt one safe regeneration, then report verified and unresolved features."""
+    initial_validation = validate_generated_source(source)
+    initial_coverage = validate_feature_coverage(source, requested_features)
+    needs_repair = (not initial_validation["valid"]) or bool(initial_coverage["missing"])
+    result_source = source
+    validation = initial_validation
+    coverage = initial_coverage
+    attempted = False
+    repaired = False
+    errors = []
+
+    if needs_repair and callable(regenerate_callback):
+        attempted = True
+        try:
+            candidate = regenerate_callback()
+            candidate_validation = validate_generated_source(candidate)
+            candidate_coverage = validate_feature_coverage(candidate, requested_features)
+            improves_coverage = (
+                len(candidate_coverage["implemented"]) >= len(initial_coverage["implemented"])
+                and len(candidate_coverage["missing"]) <= len(initial_coverage["missing"])
+            )
+            if candidate_validation["valid"] and (not initial_validation["valid"] or improves_coverage):
+                result_source = candidate
+                validation = candidate_validation
+                coverage = candidate_coverage
+                repaired = candidate != source
+            else:
+                errors.extend(candidate_validation["errors"])
+        except Exception as error:
+            errors.append("Regeneration failed: {}".format(error))
+
+    return {
+        "source": result_source,
+        "attempted": attempted,
+        "attempts": 1 if attempted else 0,
+        "repaired": repaired,
+        "validation": validation,
+        "coverage": coverage,
+        "unresolved": list(coverage["missing"]),
+        "errors": errors,
+    }
+
+
 def validate_generated_source(source):
     """Compile generated Python and return structured validation results."""
     if not isinstance(source, str) or not source.strip():
