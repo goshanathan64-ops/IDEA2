@@ -251,7 +251,7 @@ def generate_expense_tracker_code(data):
     generated = generated.replace("__APP_DESCRIPTION__", repr(description))
     generated = generated.replace("__ENABLED_FEATURES__", repr(selected))
 
-    coverage = validate_feature_coverage(generated, selected)
+    coverage = validate_feature_coverage(generated, selected, template_id="expense_tracker")
     validation = validate_generated_source(generated)
     report = [
         "",
