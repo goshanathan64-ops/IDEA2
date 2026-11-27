@@ -400,7 +400,7 @@ class GeneratedApp(App):
         ]
         valid_backups = [path for path in backups if self._is_valid_backup_file(path)]
         if not valid_backups:
-            raise ValueError("No backup is available; no valid backup is available on this device.")
+            raise ValueError("No backup is available. No valid backup is available on this device.")
         latest = max(valid_backups, key=os.path.basename)
         # Preserve the current database before replacing it.
         self._create_backup_file()
