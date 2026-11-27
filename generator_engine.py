@@ -372,29 +372,34 @@ class GeneratedApp(App):
     def _get_backup_inventory(self):
         directory = self._backup_directory()
         inventory = []
-        for filename in os.listdir(directory):
-            if not (filename.startswith("my_shop_") and filename.endswith(".db")):
-                continue
-            path = os.path.join(directory, filename)
-            try:
-                stat = os.stat(path)
-                size = stat.st_size
+        # Do not follow symlinks: a matching filename must never make the
+        # inventory inspect a database stored outside the private backup folder.
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                filename = entry.name
+                if not (filename.startswith("my_shop_") and filename.endswith(".db")):
+                    continue
+                try:
+                    if not entry.is_file(follow_symlinks=False):
+                        continue
+                    stat = entry.stat(follow_symlinks=False)
+                except OSError:
+                    # The file may have disappeared or become inaccessible
+                    # while the inventory was being refreshed.
+                    continue
+                path = os.path.join(directory, filename)
                 created_timestamp = stat.st_mtime
                 created_at = datetime.fromtimestamp(
                     created_timestamp
                 ).strftime("%Y-%m-%d %H:%M")
-            except OSError:
-                size = 0
-                created_timestamp = 0
-                created_at = "Date unavailable"
-            inventory.append({
-                "path": path,
-                "filename": filename,
-                "created_at": created_at,
-                "created_timestamp": created_timestamp,
-                "valid": self._is_valid_backup_file(path),
-                "size_bytes": size,
-            })
+                inventory.append({
+                    "path": path,
+                    "filename": filename,
+                    "created_at": created_at,
+                    "created_timestamp": created_timestamp,
+                    "valid": self._is_valid_backup_file(path),
+                    "size_bytes": stat.st_size,
+                })
         return sorted(
             inventory, key=lambda item: item["created_timestamp"], reverse=True
         )

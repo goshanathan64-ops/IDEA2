@@ -491,6 +491,39 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
             )
         app.db.close()
 
+    def test_shop_backup_inventory_ignores_symlinks_and_matching_directories(self):
+        app = self.load_app("shop_inventory", "Backup Inventory Entry Safety")
+        with tempfile.TemporaryDirectory() as backup_root:
+            app.user_data_dir = backup_root
+            valid_path = app._create_backup_file()
+            directory = os.path.join(backup_root, "backups")
+            matching_directory = os.path.join(directory, "my_shop_fake.db")
+            os.makedirs(matching_directory)
+            external_path = os.path.join(backup_root, "external.db")
+            connection = sqlite3.connect(external_path)
+            try:
+                connection.executescript("""
+                    CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT, quantity INTEGER, selling_price REAL, currency TEXT);
+                    CREATE TABLE customers (id INTEGER PRIMARY KEY, name TEXT, phone TEXT);
+                    CREATE TABLE sales (id INTEGER PRIMARY KEY, product_id INTEGER, quantity INTEGER, unit_price REAL, currency TEXT);
+                    CREATE TABLE expenses (id INTEGER PRIMARY KEY, description TEXT, amount REAL, currency TEXT);
+                """)
+                connection.commit()
+            finally:
+                connection.close()
+            symlink_path = os.path.join(directory, "my_shop_external.db")
+            try:
+                os.symlink(external_path, symlink_path)
+            except (OSError, NotImplementedError):
+                symlink_path = None
+
+            inventory = app._get_backup_inventory()
+            self.assertEqual([item["path"] for item in inventory], [valid_path])
+            self.assertTrue(os.path.isfile(external_path))
+            if symlink_path:
+                self.assertTrue(os.path.islink(symlink_path))
+        app.db.close()
+
     def test_shop_backup_inventory_reports_valid_and_invalid_files(self):
         app = self.load_app("shop_inventory", "Backup Inventory")
         with tempfile.TemporaryDirectory() as backup_root:
