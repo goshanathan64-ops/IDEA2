@@ -1,6 +1,6 @@
 import unittest
 
-from feature_engine import FEATURE_SOURCE_CHECKS, analyze_blueprint, canonical_feature, prepare_blueprint_review, repair_generated_source, select_generated_features, split_requested_features, validate_feature_coverage, validate_generated_source
+from feature_engine import FEATURE_SOURCE_CHECKS, analyze_blueprint, canonical_feature, prepare_blueprint_review, apply_blueprint_feature_selection, repair_generated_source, select_generated_features, split_requested_features, validate_feature_coverage, validate_generated_source
 
 
 class FeatureEngineTests(unittest.TestCase):
@@ -94,6 +94,36 @@ class FeatureEngineTests(unittest.TestCase):
             "record_sales, product_catalogue, stock_tracking, basic_reports, currency_support",
         )
         self.assertEqual(review["analysis"]["explicit"], ["record_sales"])
+
+    def test_user_feature_selection_keeps_only_checked_features(self):
+        original = {
+            "name": "Village Shop",
+            "template_id": "shop_inventory",
+            "features": "products, stock, sales",
+        }
+        selected = apply_blueprint_feature_selection(
+            original, ["stock_tracking", "custom_feature", "stock_tracking"]
+        )
+        self.assertEqual(
+            selected["features"], "stock_tracking, custom_feature"
+        )
+        self.assertEqual(original["features"], "products, stock, sales")
+        plan = analyze_blueprint(selected)
+        self.assertEqual(plan["available"], ["stock_tracking"])
+        self.assertEqual(plan["unsupported"], ["custom_feature"])
+
+    def test_user_can_remove_all_inferred_features(self):
+        selected = apply_blueprint_feature_selection(
+            {"description": "Products, stock and sales", "template_id": "shop_inventory"},
+            []
+        )
+        self.assertEqual(selected["features"], "")
+        self.assertEqual(analyze_blueprint(selected)["explicit"], [])
+        # Description hints remain separately identifiable until final selection is applied.
+        self.assertEqual(
+            analyze_blueprint(selected)["inferred"],
+            ["product_catalogue", "stock_tracking", "record_sales"],
+        )
 
     def test_blueprint_review_keeps_unsupported_features_visible(self):
         review = prepare_blueprint_review({
