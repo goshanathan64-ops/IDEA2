@@ -39,6 +39,7 @@ class IDEA2APK(App):
         self.current_project = None
         self.selected_template_id = "shop_inventory"
         self.generated_code = ""
+        self.pending_blueprint_data = None
 
         self.manager = ScreenManager()
 
@@ -46,12 +47,14 @@ class IDEA2APK(App):
         self.planner_screen = Screen(name="planner")
         self.projects_screen = Screen(name="projects")
         self.result_screen = Screen(name="result")
+        self.blueprint_review_screen = Screen(name="blueprint_review")
 
         for screen in [
             self.home_screen,
             self.planner_screen,
             self.projects_screen,
-            self.result_screen
+            self.result_screen,
+            self.blueprint_review_screen
         ]:
             self.manager.add_widget(screen)
 
@@ -59,6 +62,7 @@ class IDEA2APK(App):
         self.create_planner_screen()
         self.create_projects_screen()
         self.create_result_screen()
+        self.create_blueprint_review_screen()
 
         return self.manager
 
@@ -355,6 +359,36 @@ class IDEA2APK(App):
 
         self.result_screen.add_widget(root)
 
+    # BLUEPRINT REVIEW
+
+    def create_blueprint_review_screen(self):
+        root = BoxLayout(
+            orientation="vertical",
+            padding=dp(10),
+            spacing=dp(8)
+        )
+        root.add_widget(self.make_label("REVIEW YOUR APP BLUEPRINT", 48, 20))
+        self.blueprint_review_text = TextInput(
+            readonly=True,
+            multiline=True,
+            font_size=sp(14),
+            size_hint_y=1
+        )
+        root.add_widget(self.blueprint_review_text)
+        root.add_widget(self.make_button(
+            "APPROVE PLAN & GENERATE CODE",
+            self.approve_blueprint
+        ))
+        root.add_widget(self.make_button(
+            "EDIT BLUEPRINT",
+            self.edit_blueprint_from_review
+        ))
+        root.add_widget(self.make_button(
+            "CANCEL REVIEW",
+            self.cancel_blueprint_review
+        ))
+        self.blueprint_review_screen.add_widget(root)
+
     # PROJECT DATA
 
     def get_project_data(self):
@@ -391,42 +425,43 @@ class IDEA2APK(App):
 
     def generate_blueprint(self, *args):
         data = self.get_project_data()
-
         if not data:
             return
 
-        from template_catalog import blueprint_support_report
+        try:
+            from feature_engine import prepare_blueprint_review
+            review = prepare_blueprint_review(data)
+            self.pending_blueprint_data = review["data"]
+            self.current_project = data
+            self.blueprint_review_text.text = review["text"]
+            self.manager.current = "blueprint_review"
+        except Exception as error:
+            self.message("Blueprint review failed:\\n" + str(error))
 
-        support = blueprint_support_report(data)
-        template_name = support["template_name"]
-        supported = ", ".join(support["supported"]) or "none requested"
-        unsupported = ", ".join(support["unsupported"]) or "none"
-        readiness = support["readiness"]
+    def approve_blueprint(self, *args):
+        if not self.pending_blueprint_data:
+            self.message("Create a blueprint review before approving.")
+            return
+        # The approved feature list includes explicit requests and description hints.
+        self.current_project = dict(self.pending_blueprint_data)
+        self.generate_app_code(use_approved=True)
 
-        blueprint = (
-            "IDEA2APK APP BLUEPRINT\\n\\n"
-            "APP NAME: " + data["name"] + "\\n\\n"
-            "DESCRIPTION: " + data["description"] + "\\n\\n"
-            "TARGET USERS: " + data["target"] + "\\n\\n"
-            "APP TYPE: " + data["app_type"] + "\\n\\n"
-            "SELECTED TEMPLATE: " + template_name + " (" + readiness + ")\\n\\n"
-            "REQUESTED FEATURES:\\n" + (data["features"] or "Template defaults") + "\\n\\n"
-            "SUPPORTED BY THIS TEMPLATE:\\n" + supported + "\\n\\n"
-            "NOT SUPPORTED YET:\\n" + unsupported + "\\n\\n"
-            "NOTE: Supported means this template has a generator for the feature; "
-            "generated source is checked again after code generation.\\n\\n"
-            "NEXT STEP: Review this blueprint, then generate the application code."
-        )
+    def edit_blueprint_from_review(self, *args):
+        self.pending_blueprint_data = None
+        self.manager.current = "planner"
 
-        self.generated_code = blueprint
-        self.current_project = data
-        self.result_text.text = blueprint
-        self.manager.current = "result"
+    def cancel_blueprint_review(self, *args):
+        self.pending_blueprint_data = None
+        self.manager.current = "planner"
 
     # APP CODE GENERATION
 
-    def generate_app_code(self, *args):
-        data = self.get_project_data()
+    def generate_app_code(self, *args, use_approved=False):
+        data = (
+            dict(self.pending_blueprint_data)
+            if use_approved and self.pending_blueprint_data
+            else self.get_project_data()
+        )
 
         if not data:
             return
@@ -437,6 +472,7 @@ class IDEA2APK(App):
             code = generate_app_code(data)
             self.generated_code = code
             self.current_project = data
+            self.pending_blueprint_data = None
             self.result_text.text = code
             self.manager.current = "result"
             self.selected_template_id = data.get("template_id", "shop_inventory")
