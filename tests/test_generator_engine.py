@@ -302,6 +302,22 @@ class GeneratorEngineTests(unittest.TestCase):
         self.assertEqual(monthly["ZIG"]["unknown_cost_sales"], 1)
         app.db.close()
 
+
+    def test_generated_shop_ui_has_grouped_scrollable_navigation_and_dashboard(self):
+        source = generate_app_code({
+            "template_id": "shop_inventory",
+            "name": "My Shop",
+            "description": "Offline shop manager",
+            "features": "products, stock, sales",
+        })
+        self.assertIn('ScrollView(do_scroll_x=False', source)
+        self.assertIn('"SALES & STOCK"', source)
+        self.assertIn('"CUSTOMERS & EXPENSES"', source)
+        self.assertIn('"REPORTS & DATA SAFETY"', source)
+        self.assertIn('"HOME / REFRESH"', source)
+        self.assertIn('self.dashboard_summary.text = summary', source)
+        self.assertIn('Low-stock items:', source)
+
     def test_unready_template_is_not_misrepresented_as_shop_app(self):
         with self.assertRaisesRegex(ValueError, "not ready to generate"):
             generate_app_code({
