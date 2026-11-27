@@ -16,7 +16,7 @@ from threading import Thread
 from github_builder import upload_and_dispatch
 from project_schema import normalize_project, validate_project
 from template_catalog import get_template, list_templates
-from blueprint_intelligence import analyze_blueprint_intelligence, render_blueprint_intelligence_summary
+from blueprint_intelligence import (analyze_blueprint_intelligence, render_blueprint_intelligence_summary,\n    recommend_blueprint_improvements, render_blueprint_improvements)
 
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.uix.boxlayout import BoxLayout
@@ -465,6 +465,26 @@ class IDEA2APK(App):
         intelligence = analyze_blueprint_intelligence(data, analysis)
         self.blueprint_intelligence_label.text = render_blueprint_intelligence_summary(intelligence)
         self.refresh_dependency_preview()
+
+    def add_blueprint_suggestions(self, *args):
+        if not self.pending_blueprint_data:
+            self.message("Create a blueprint review first.")
+            return
+        suggestions = getattr(self, "blueprint_improvement_suggestions", [])
+        if not suggestions:
+            self.message("There are no additional supported suggestions for this blueprint.")
+            return
+        selected = [
+            name for name, checkbox in self.review_feature_checks.items()
+            if checkbox.active
+        ]
+        for item in suggestions:
+            feature = item["feature"]
+            if feature not in selected:
+                selected.append(feature)
+        self.pending_blueprint_data["features"] = ", ".join(selected)
+        self.refresh_review_feature_list(selected)
+        self.message("Suggested features added to the review. Check the list and remove anything you do not want before generating.")
 
     def refresh_dependency_preview(self, *args):
         from feature_engine import preview_feature_dependencies

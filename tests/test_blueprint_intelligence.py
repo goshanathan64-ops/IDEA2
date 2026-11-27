@@ -1,5 +1,5 @@
 import unittest
-from blueprint_intelligence import analyze_blueprint_intelligence, render_blueprint_intelligence_summary
+from blueprint_intelligence import (analyze_blueprint_intelligence, render_blueprint_intelligence_summary,\n    recommend_blueprint_improvements, render_blueprint_improvements)
 
 class BlueprintIntelligenceTests(unittest.TestCase):
     def test_complete_blueprint_is_high_confidence(self):
@@ -35,6 +35,26 @@ class BlueprintIntelligenceTests(unittest.TestCase):
         report = analyze_blueprint_intelligence({"name":"New App","description":"A new app","target":"Users","template_id":"future_template"},{"unsupported":[],"ready":False})
         self.assertTrue(any(i["type"]=="unknown_template" for i in report["issues"]))
         self.assertTrue(report["ready_for_review"])
+
+    def test_improvements_are_supported_and_do_not_mutate_blueprint(self):
+        data = {"template_id":"shop_inventory","features":"record_sales"}
+        before = dict(data)
+        suggestions = recommend_blueprint_improvements(data, {"requested":["record_sales"]})
+        self.assertTrue(suggestions)
+        self.assertTrue(all(item["feature"] in {"product_catalogue","stock_tracking","basic_reports","local_sqlite_storage"} for item in suggestions))
+        self.assertEqual(data, before)
+
+    def test_improvements_skip_existing_features_and_unknown_templates(self):
+        data = {"template_id":"task_manager","features":"tasks, due dates"}
+        suggestions = recommend_blueprint_improvements(data)
+        names = [item["feature"] for item in suggestions]
+        self.assertNotIn("task_records", names)
+        self.assertNotIn("due_dates", names)
+        self.assertEqual(recommend_blueprint_improvements({"template_id":"future_template"}), [])
+
+    def test_improvement_renderer_is_clear_when_empty(self):
+        self.assertIn("No additional", render_blueprint_improvements([]))
+        self.assertIn("OPTIONAL IMPROVEMENTS", render_blueprint_improvements([{"feature":"basic_reports","reason":"Summarize records."}]))
 
     def test_summary_format_includes_score_and_recommendation(self):
         report = analyze_blueprint_intelligence({"name":"My App"})
