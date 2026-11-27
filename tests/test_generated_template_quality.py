@@ -642,6 +642,28 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
             self.assertEqual(row[0], 7)
         app.db.close()
 
+    def test_shop_restore_reenables_foreign_key_enforcement(self):
+        app = self.load_app("shop_inventory", "Restore Foreign Key Enforcement")
+        with tempfile.TemporaryDirectory() as backup_root:
+            app.user_data_dir = backup_root
+            directory = os.path.join(backup_root, "backups")
+            os.makedirs(directory)
+            selected_backup = app._create_backup_file()
+            app.db.execute(
+                "INSERT INTO products (name, quantity, selling_price, currency) VALUES (?, ?, ?, ?)",
+                ("Temporary item", 3, 1.0, "USD"),
+            )
+            app.db.commit()
+            self.assertEqual(app.db.execute("PRAGMA foreign_keys").fetchone()[0], 1)
+            app._restore_backup(selected_backup)
+            self.assertEqual(app.db.execute("PRAGMA foreign_keys").fetchone()[0], 1)
+            self.assertIsNone(
+                app.db.execute(
+                    "SELECT id FROM products WHERE name = ?", ("Temporary item",)
+                ).fetchone()
+            )
+        app.db.close()
+
     def test_shop_restore_invalid_backup_does_not_create_pre_restore_backup(self):
         app = self.load_app("shop_inventory", "Invalid Backup No Side Effect")
         with tempfile.TemporaryDirectory() as backup_root:
