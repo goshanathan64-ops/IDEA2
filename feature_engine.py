@@ -3,6 +3,15 @@ import ast
 import re
 
 ALIASES = {
+    "tasks": "task_records", "task": "task_records", "task records": "task_records",
+    "create tasks": "task_records", "add tasks": "task_records",
+    "deadlines": "due_dates", "due dates": "due_dates", "task deadlines": "due_dates",
+    "priorities": "priority_levels", "task priorities": "priority_levels",
+    "high medium low priority": "priority_levels",
+    "completion": "completion_tracking", "completion tracking": "completion_tracking",
+    "mark tasks complete": "completion_tracking", "task completion": "completion_tracking",
+    "task categories": "task_categories", "categories for tasks": "task_categories",
+    "task search": "task_search", "search tasks": "task_search",
     "bookings": "booking_records", "booking": "booking_records",
     "booking records": "booking_records", "make bookings": "booking_records",
     "appointments": "appointment_scheduling", "appointment scheduling": "appointment_scheduling",
@@ -69,6 +78,17 @@ SCHOOL_RECORDS_SOURCE_CHECKS = {
     "local_sqlite_storage": ("sqlite3.connect", "self.user_data_dir"),
 }
 
+TASK_MANAGER_SOURCE_CHECKS = {
+    "task_records": ("CREATE TABLE IF NOT EXISTS tasks", "def _save_task", "INSERT INTO tasks"),
+    "due_dates": ("due_date TEXT DEFAULT ''", "def _get_due_tasks", "datetime.strptime(due_date, \"%Y-%m-%d\")"),
+    "priority_levels": ("priority TEXT NOT NULL DEFAULT 'medium'", "CHECK(priority IN ('low','medium','high'))"),
+    "completion_tracking": ("status TEXT NOT NULL DEFAULT 'pending'", "def _complete_task", "completed_at=CURRENT_TIMESTAMP"),
+    "task_categories": ("category TEXT DEFAULT 'General'", "category LIKE ?"),
+    "task_search": ("def _get_tasks", "title LIKE ?", "description LIKE ?"),
+    "basic_reports": ("def _get_summary", "def show_summary"),
+    "local_sqlite_storage": ("sqlite3.connect", "self.user_data_dir"),
+}
+
 BOOKING_APPOINTMENTS_SOURCE_CHECKS = {
     "booking_records": ("CREATE TABLE IF NOT EXISTS bookings", "def _save_booking", "INSERT INTO bookings"),
     "appointment_scheduling": ("booking_date TEXT NOT NULL", "def _get_upcoming", "datetime.strptime(day + \" \" + clock"),
@@ -84,6 +104,7 @@ TEMPLATE_FEATURE_CHECKS = {
     "expense_tracker": EXPENSE_TRACKER_SOURCE_CHECKS,
     "school_records": SCHOOL_RECORDS_SOURCE_CHECKS,
     "booking_appointments": BOOKING_APPOINTMENTS_SOURCE_CHECKS,
+    "task_manager": TASK_MANAGER_SOURCE_CHECKS,
 }
 
 
