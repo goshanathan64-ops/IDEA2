@@ -383,5 +383,26 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
         app.db.close()
 
 
+    def test_shop_backup_inventory_reports_valid_and_invalid_files(self):
+        app = self.load_app("shop_inventory", "Backup Inventory")
+        with tempfile.TemporaryDirectory() as backup_root:
+            app.user_data_dir = backup_root
+            valid_path = app._create_backup_file()
+            invalid_path = os.path.join(
+                backup_root, "backups", "my_shop_99999999_999999_999999.db"
+            )
+            with open(invalid_path, "wb") as handle:
+                handle.write(b"invalid sqlite data")
+
+            inventory = app._get_backup_inventory()
+            self.assertEqual(len(inventory), 2)
+            self.assertEqual(inventory[0]["filename"], os.path.basename(invalid_path))
+            self.assertFalse(inventory[0]["valid"])
+            self.assertTrue(inventory[1]["valid"])
+            self.assertEqual(inventory[1]["path"], valid_path)
+            self.assertGreater(inventory[1]["size_bytes"], 0)
+        app.db.close()
+
+
 if __name__ == "__main__":
     unittest.main()

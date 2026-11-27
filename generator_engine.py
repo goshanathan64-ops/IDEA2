@@ -111,6 +111,7 @@ class GeneratedApp(App):
                 ("basic_reports", "Today's Report", self.show_daily_report),
                 ("basic_reports", "This Month's Report", self.show_monthly_report),
                 ("local_sqlite_storage", "Create Backup", self.create_backup),
+                ("local_sqlite_storage", "Check Backups", self.show_backup_inventory),
                 ("local_sqlite_storage", "Restore Latest Backup", self.confirm_restore_backup),
             ]),
         ]
@@ -367,6 +368,39 @@ class GeneratedApp(App):
                 pass
             raise sqlite3.DatabaseError("Backup verification failed; the incomplete backup was discarded.")
         return path
+
+    def _get_backup_inventory(self):
+        directory = self._backup_directory()
+        inventory = []
+        for filename in os.listdir(directory):
+            if not (filename.startswith("my_shop_") and filename.endswith(".db")):
+                continue
+            path = os.path.join(directory, filename)
+            try:
+                size = os.path.getsize(path)
+            except OSError:
+                size = 0
+            inventory.append({
+                "path": path,
+                "filename": filename,
+                "valid": self._is_valid_backup_file(path),
+                "size_bytes": size,
+            })
+        return sorted(inventory, key=lambda item: item["filename"], reverse=True)
+
+    def show_backup_inventory(self, *_args):
+        inventory = self._get_backup_inventory()
+        if not inventory:
+            self.popup_message("Local backups", "No local backups have been created yet.")
+            return
+        lines = []
+        for item in inventory:
+            status = "VALID" if item["valid"] else "INVALID"
+            size_kb = item["size_bytes"] / 1024.0
+            lines.append("{} | {:.1f} KB | {}".format(
+                item["filename"], size_kb, status
+            ))
+        self.popup_message("Local backups ({})".format(len(inventory)), "\\n".join(lines))
 
     def create_backup(self, *_args):
         path = self._create_backup_file()
