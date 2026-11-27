@@ -9,7 +9,7 @@ import re
 import sqlite3
 from datetime import datetime
 
-from feature_engine import analyze_blueprint, repair_generated_source, validate_feature_coverage, validate_generated_source
+from feature_engine import analyze_blueprint, repair_generated_source, select_generated_features, validate_feature_coverage, validate_generated_source
 
 
 def generate_app_code(data):
@@ -38,6 +38,11 @@ from kivy.uix.scrollview import ScrollView
 
 APP_TITLE = __APP_TITLE__
 APP_DESCRIPTION = __APP_DESCRIPTION__
+ENABLED_FEATURES = __ENABLED_FEATURES__
+
+
+def feature_enabled(feature):
+    return feature in ENABLED_FEATURES
 
 
 class GeneratedApp(App):
@@ -70,35 +75,41 @@ class GeneratedApp(App):
 
         sections = [
             ("SALES & STOCK", [
-                ("Products / Inventory", self.show_products),
-                ("Add Product", self.add_product),
-                ("Edit Product", self.edit_product),
-                ("Delete Product", self.delete_product),
-                ("Record Sale", self.record_sale),
-                ("Sales History", self.show_sales_history),
-                ("Low Stock Alerts", self.show_low_stock),
+                ("product_catalogue", "Products / Inventory", self.show_products),
+                ("product_catalogue", "Add Product", self.add_product),
+                ("product_catalogue", "Edit Product", self.edit_product),
+                ("product_catalogue", "Delete Product", self.delete_product),
+                ("record_sales", "Record Sale", self.record_sale),
+                ("record_sales", "Sales History", self.show_sales_history),
+                ("stock_tracking", "Low Stock Alerts", self.show_low_stock),
             ]),
             ("CUSTOMERS & EXPENSES", [
-                ("Add / Update Customer", self.add_customer),
-                ("Customer List / Search", self.show_customers),
-                ("Record Expense", self.add_expense),
-                ("Expense History", self.show_expense_history),
+                ("customer_records", "Add / Update Customer", self.add_customer),
+                ("customer_records", "Customer List / Search", self.show_customers),
+                ("expense_records", "Record Expense", self.add_expense),
+                ("expense_records", "Expense History", self.show_expense_history),
             ]),
             ("REPORTS & DATA SAFETY", [
-                ("Business Reports", self.show_reports),
-                ("Today's Report", self.show_daily_report),
-                ("This Month's Report", self.show_monthly_report),
-                ("Create Backup", self.create_backup),
-                ("Restore Latest Backup", self.confirm_restore_backup),
+                ("basic_reports", "Business Reports", self.show_reports),
+                ("basic_reports", "Today's Report", self.show_daily_report),
+                ("basic_reports", "This Month's Report", self.show_monthly_report),
+                ("local_sqlite_storage", "Create Backup", self.create_backup),
+                ("local_sqlite_storage", "Restore Latest Backup", self.confirm_restore_backup),
             ]),
         ]
         for section_title, actions in sections:
+            visible_actions = [
+                (caption, callback) for feature, caption, callback in actions
+                if feature_enabled(feature)
+            ]
+            if not visible_actions:
+                continue
             heading = Label(
                 text=section_title, size_hint_y=None, height=dp(30),
                 font_size=sp(13), bold=True
             )
             menu_content.add_widget(heading)
-            for caption, callback in actions:
+            for caption, callback in visible_actions:
                 button = Button(text=caption, size_hint_y=None, height=dp(48))
                 button.bind(on_release=callback)
                 menu_content.add_widget(button)
@@ -717,17 +728,20 @@ if __name__ == "__main__":
         template
         .replace("__APP_TITLE__", json.dumps(safe_title))
         .replace("__APP_DESCRIPTION__", json.dumps(description))
+        .replace("__ENABLED_FEATURES__", json.dumps(select_generated_features(analyze_blueprint(data)["requested"])))
     )
 
     # Retry generation once if supported features are missing or source is invalid.
     plan = analyze_blueprint(data)
+    selected_features = select_generated_features(plan["requested"])
     repair = repair_generated_source(
         generated,
-        plan["available"],
+        selected_features,
         regenerate_callback=lambda: (
             template
             .replace("__APP_TITLE__", json.dumps(safe_title))
             .replace("__APP_DESCRIPTION__", json.dumps(description))
+            .replace("__ENABLED_FEATURES__", json.dumps(selected_features))
         ),
     )
     generated = repair["source"]
@@ -740,6 +754,7 @@ if __name__ == "__main__":
         "",
         "# IDEA2APK V3 BLUEPRINT VERIFICATION",
         "# Requested: " + (", ".join(plan["requested"]) or "none"),
+        "# Selected for app UI: " + (", ".join(selected_features) or "none"),
         "# Actually generated and verified: " + (", ".join(coverage["implemented"]) or "none"),
         "# Missing from generated code: " + (", ".join(coverage["missing"]) or "none"),
         "# Unsupported by selected template: " + (", ".join(plan["unsupported"]) or "none"),
@@ -749,6 +764,7 @@ if __name__ == "__main__":
         "# Unresolved supported features: " + (", ".join(repair["unresolved"]) or "none"),
         "# Completion: " + ("COMPLETE" if coverage["complete"] else "PARTIAL - review missing features"),
         "# Source checks are deterministic fingerprints, not a substitute for device testing.",
+        "# App menu actions are filtered to the selected features; shared database code remains in the template.",
         "",
     ]
     generated += "\n".join(report)
