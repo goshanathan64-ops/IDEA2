@@ -344,7 +344,7 @@ class GeneratorEngineTests(unittest.TestCase):
     def test_unready_template_is_not_misrepresented_as_shop_app(self):
         with self.assertRaisesRegex(ValueError, "not ready to generate"):
             generate_app_code({
-                "template_id": "task_manager",
+                "template_id": "customer_manager",
                 "name": "School App",
                 "description": "School records",
                 "features": "student records, attendance",
