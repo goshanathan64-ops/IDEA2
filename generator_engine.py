@@ -13,7 +13,11 @@ from feature_engine import analyze_blueprint, repair_generated_source, select_ge
 
 
 def generate_app_code(data):
+    data = data if isinstance(data, dict) else {}
     template_id = str(data.get("template_id") or "shop_inventory")
+    if template_id == "expense_tracker":
+        from expense_tracker_generator import generate_expense_tracker_code
+        return generate_expense_tracker_code(data)
     if template_id != "shop_inventory":
         raise ValueError("The selected template is not ready to generate apps yet: " + template_id)
 
