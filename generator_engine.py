@@ -23,6 +23,7 @@ def generate_app_code(data):
 
     template = r'''import os
 import sqlite3
+import math
 from datetime import datetime
 
 from kivy.app import App
@@ -61,8 +62,12 @@ class GeneratedApp(App):
             ("Sales History", self.show_sales_history),
             ("Low Stock", self.show_low_stock),
             ("Customers", self.add_customer),
+            ("Customer List / Search", self.show_customers),
             ("Expenses", self.add_expense),
+            ("Expense History", self.show_expense_history),
             ("Reports", self.show_reports),
+            ("Daily Report", self.show_daily_report),
+            ("Monthly Report", self.show_monthly_report),
             ("Create Backup", self.create_backup),
             ("Restore Latest Backup", self.confirm_restore_backup),
         ]
@@ -450,41 +455,161 @@ class GeneratedApp(App):
             )
         self.popup_message("Low-stock products", message)
 
+    def _save_customer(self, name, phone=""):
+        name = str(name or "").strip()
+        phone = str(phone or "").strip()
+        if not name:
+            raise ValueError("Customer name is required.")
+        existing = self.db.execute(
+            "SELECT id FROM customers WHERE name=? COLLATE NOCASE ORDER BY id LIMIT 1",
+            (name,)
+        ).fetchone()
+        if existing:
+            self.db.execute("UPDATE customers SET phone=? WHERE id=?", (phone, existing[0]))
+        else:
+            self.db.execute("INSERT INTO customers(name, phone) VALUES(?,?)", (name, phone))
+        self.db.commit()
+
+    def _get_customers(self, search=""):
+        search = str(search or "").strip()
+        if search:
+            pattern = "%" + search + "%"
+            return self.db.execute(
+                "SELECT name, phone FROM customers WHERE name LIKE ? OR phone LIKE ? ORDER BY name",
+                (pattern, pattern)
+            ).fetchall()
+        return self.db.execute("SELECT name, phone FROM customers ORDER BY name").fetchall()
+
     def add_customer(self, *_args):
         def save(values):
-            if not values["name"]:
-                raise ValueError("Customer name is required.")
-            self.db.execute(
-                "INSERT INTO customers(name, phone) VALUES(?,?)",
-                (values["name"], values["phone"])
-            )
-            self.db.commit()
-            rows = self.db.execute("SELECT name, phone FROM customers ORDER BY id DESC").fetchall()
-            self.popup_message("Customers", "\n".join("{}  {}".format(*row) for row in rows))
-        self.open_form("Add Customer", [
+            self._save_customer(values["name"], values.get("phone", ""))
+            self.popup_message("Customer saved", "Customer details saved. Open Customer List / Search to view records.")
+        self.open_form("Add / Update Customer", [
             ("name", "Customer name"),
             ("phone", "Phone number (optional)")
         ], save)
 
+    def show_customers(self, *_args):
+        rows = self._get_customers()
+        if not rows:
+            message = "No customers saved yet."
+        else:
+            message = "CUSTOMER | PHONE\n" + "\n".join(
+                "{} | {}".format(*row) for row in rows
+            )
+        self.popup_message("Customer List", message)
+
+    def _save_expense(self, description, amount, currency):
+        description = str(description or "").strip()
+        try:
+            amount = float(amount)
+        except (TypeError, ValueError):
+            raise ValueError("Enter a valid expense amount.")
+        currency = str(currency or "").strip().upper()
+        if currency not in ("USD", "ZIG"):
+            raise ValueError("Currency must be USD or ZiG.")
+        if not description or not math.isfinite(amount) or amount <= 0:
+            raise ValueError("Enter an expense description and a positive, valid amount.")
+        self.db.execute(
+            "INSERT INTO expenses(description, amount, currency) VALUES(?,?,?)",
+            (description, amount, currency)
+        )
+        self.db.commit()
+
+    def _get_expense_history(self, limit=100):
+        return self.db.execute(
+            "SELECT created_at, description, amount, currency FROM expenses "
+            "ORDER BY id DESC LIMIT ?",
+            (int(limit),)
+        ).fetchall()
+
     def add_expense(self, *_args):
         def save(values):
-            description = values["description"]
-            amount = float(values["amount"])
-            currency = values["currency"].upper()
-            if currency not in ("USD", "ZIG"):
-                raise ValueError("Currency must be USD or ZiG.")
-            if not description or amount <= 0:
-                raise ValueError("Enter an expense description and amount greater than zero.")
-            self.db.execute(
-                "INSERT INTO expenses(description, amount, currency) VALUES(?,?,?)",
-                (description, amount, currency)
-            )
-            self.db.commit()
+            self._save_expense(values["description"], values["amount"], values["currency"])
+            self.status.text = "Expense saved."
+            self.show_expense_history()
         self.open_form("Record Expense", [
-            ("description", "Expense description"),
+            ("description", "Expense description / category"),
             ("amount", "Amount"),
             ("currency", "Currency: USD or ZIG")
         ], save)
+
+    def show_expense_history(self, *_args):
+        rows = self._get_expense_history()
+        if not rows:
+            message = "No expenses recorded yet."
+        else:
+            message = "DATE | DESCRIPTION | AMOUNT | CURRENCY\n"
+            message += "\n".join(
+                "{} | {} | {:.2f} | {}".format(*row) for row in rows
+            )
+        self.popup_message("Expense History", message)
+
+    def _get_period_totals(self, period, period_value):
+        if period == "daily":
+            expression = "substr(created_at, 1, 10)"
+            expected_length = 10
+        elif period == "monthly":
+            expression = "substr(created_at, 1, 7)"
+            expected_length = 7
+        else:
+            raise ValueError("Period must be daily or monthly.")
+        period_value = str(period_value or "").strip()
+        if len(period_value) != expected_length:
+            raise ValueError("Invalid report date.")
+        totals = {}
+        for currency in ("USD", "ZIG"):
+            sales = self.db.execute(
+                "SELECT COALESCE(SUM(quantity * unit_price),0), "
+                "COALESCE(SUM(CASE WHEN cost_known=1 THEN quantity * unit_price ELSE 0 END),0), "
+                "COALESCE(SUM(CASE WHEN cost_known=1 THEN quantity * unit_cost ELSE 0 END),0), "
+                "COALESCE(SUM(CASE WHEN cost_known=0 THEN 1 ELSE 0 END),0), COUNT(*) "
+                "FROM sales WHERE currency=? AND " + expression + "=?",
+                (currency, period_value)
+            ).fetchone()
+            expenses = self.db.execute(
+                "SELECT COALESCE(SUM(amount),0) FROM expenses WHERE currency=? AND "
+                + expression + "=?",
+                (currency, period_value)
+            ).fetchone()[0]
+            revenue, known_revenue, known_cost, unknown_cost_sales, sale_count = sales
+            totals[currency] = {
+                "revenue": revenue,
+                "known_revenue": known_revenue,
+                "known_cost": known_cost,
+                "gross_profit_known": known_revenue - known_cost,
+                "expenses": expenses,
+                "net_result_known_costs": known_revenue - known_cost - expenses,
+                "unknown_cost_sales": unknown_cost_sales,
+                "sale_count": sale_count,
+            }
+        return totals
+
+    def _show_period_report(self, period, period_value, title):
+        totals = self._get_period_totals(period, period_value)
+        lines = [title, period_value, ""]
+        for currency in ("USD", "ZIG"):
+            item = totals[currency]
+            lines.extend([
+                currency,
+                "Sales transactions: {}".format(item["sale_count"]),
+                "Sales revenue: {:.2f}".format(item["revenue"]),
+                "Revenue with known costs: {:.2f}".format(item["known_revenue"]),
+                "Known cost of goods sold: {:.2f}".format(item["known_cost"]),
+                "Gross profit on known-cost sales: {:.2f}".format(item["gross_profit_known"]),
+                "Expenses: {:.2f}".format(item["expenses"]),
+                "Net result on known costs: {:.2f}".format(item["net_result_known_costs"]),
+                "Sales with unknown historical cost: {}".format(item["unknown_cost_sales"]),
+                ""
+            ])
+        lines.append("Historical sales without recorded costs are excluded from profit calculations.")
+        self.popup_message(title, "\n".join(lines))
+
+    def show_daily_report(self, *_args):
+        self._show_period_report("daily", datetime.now().strftime("%Y-%m-%d"), "DAILY REPORT")
+
+    def show_monthly_report(self, *_args):
+        self._show_period_report("monthly", datetime.now().strftime("%Y-%m"), "MONTHLY REPORT")
 
     def show_reports(self, *_args):
         products = self.db.execute("SELECT COUNT(*) FROM products").fetchone()[0]
@@ -522,6 +647,7 @@ class GeneratedApp(App):
             "IMPORTANT: Old sales have unknown costs. Their profit is incomplete; "
             "do not treat the figures as final accounting profit."
         )
+        lines.append("Daily and monthly reports are available from the home menu.")
         self.popup_message("Business Reports", "\n".join(lines))
 
     def show_dashboard(self, *_args):
