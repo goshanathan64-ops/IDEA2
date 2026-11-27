@@ -182,7 +182,8 @@ def canonical_feature(value):
     # Treat harmless punctuation variants consistently without guessing intent.
     compact = re.sub(r"[^a-z0-9 ]+", " ", text)
     compact = re.sub(r"\s+", " ", compact).strip()
-    return ALIASES.get(compact, compact.replace(" ", "_"))
+    # Keep the user's original punctuation in unknown feature labels for clear diagnostics.
+    return ALIASES.get(compact, text.replace(" ", "_"))
 
 
 def analyze_blueprint(data):
