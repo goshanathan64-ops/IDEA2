@@ -54,10 +54,16 @@ TEMPLATES = [
         "id": "booking_appointments",
         "name": "Booking & Appointments",
         "category": "services",
-        "status": "planned",
-        "description": "Bookings, schedules, customer details and reminders.",
-        "supported_features": [],
-        "unsupported_features": [],
+        "status": "ready",
+        "description": "Offline customer bookings, appointment scheduling, booking history, status updates and summaries.",
+        "supported_features": [
+            "booking_records", "appointment_scheduling", "customer_details",
+            "booking_status", "booking_history", "basic_reports", "local_sqlite_storage"
+        ],
+        "unsupported_features": [
+            "automatic_reminders", "sms_notifications", "online_payments",
+            "staff_multi_calendar", "cloud_sync", "multi_user_login"
+        ],
     },
     {
         "id": "task_manager",
