@@ -327,7 +327,7 @@ class GeneratorEngineTests(unittest.TestCase):
         })
         self.assertIn('ENABLED_FEATURES = ["product_catalogue", "stock_tracking", "record_sales"]', source)
         self.assertIn('if feature_enabled(feature)', source)
-        self.assertIn('# Selected for app UI: product_catalogue, stock_tracking, record_sales', source)
+        self.assertIn('# Selected for app UI (including dependencies): product_catalogue, stock_tracking, record_sales', source)
         self.assertIn('("record_sales", "Record Sale", self.record_sale)', source)
         self.assertIn('("expense_records", "Record Expense", self.add_expense)', source)
 
