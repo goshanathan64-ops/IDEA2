@@ -59,12 +59,12 @@ class ProjectSchemaTests(unittest.TestCase):
 
     def test_blueprint_report_marks_planned_template_not_ready(self):
         report = blueprint_support_report({
-            "template_id": "school_records",
-            "features": "student records, attendance",
+            "template_id": "booking_appointments",
+            "features": "appointments, reminders",
         })
         self.assertEqual(report["readiness"], "NOT READY")
         self.assertEqual(report["supported"], [])
-        self.assertEqual(report["unsupported"], ["student_records", "attendance"])
+        self.assertEqual(report["unsupported"], ["appointments", "reminders"])
 
 
 if __name__ == "__main__":
