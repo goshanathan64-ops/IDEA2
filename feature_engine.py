@@ -24,6 +24,16 @@ ALIASES = {
     "business reports": "basic_reports",
     "offline": "local_sqlite_storage",
     "local storage": "local_sqlite_storage",
+    "local data storage": "local_sqlite_storage",
+    "usd and zig support": "currency_support",
+    "usd/zig currency support": "currency_support",
+    "separate currency transactions": "currency_support",
+    "currency support": "currency_support",
+    "cost price tracking": "cost_price_tracking",
+    "product cost prices": "cost_price_tracking",
+    "profit/loss summaries": "profit_loss_reports",
+    "profit and loss summaries": "profit_loss_reports",
+    "profit reports": "profit_loss_reports",
 }
 
 SHOP_SUPPORTED = {
@@ -34,6 +44,9 @@ SHOP_SUPPORTED = {
     "expense_records",
     "basic_reports",
     "local_sqlite_storage",
+    "currency_support",
+    "cost_price_tracking",
+    "profit_loss_reports",
 }
 
 
