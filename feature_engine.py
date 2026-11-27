@@ -395,6 +395,34 @@ def expand_template_features(template_id, requested_features, available_features
     return [feature for feature in available if feature in selected]
 
 
+def preview_feature_dependencies(template_id, selected_features):
+    """Show user-selected features separately from required generator dependencies."""
+    checks = TEMPLATE_FEATURE_CHECKS.get(str(template_id), {})
+    available = list(checks)
+    selected = list(dict.fromkeys(
+        feature for feature in (selected_features or []) if feature in checks
+    ))
+    if template_id == "shop_inventory":
+        expanded = list(selected)
+        changed = True
+        while changed:
+            changed = False
+            for feature in list(expanded):
+                for dependency in FEATURE_DEPENDENCIES.get(feature, ()):
+                    if dependency in checks and dependency not in expanded:
+                        expanded.append(dependency)
+                        changed = True
+        generated = [feature for feature in available if feature in expanded]
+    else:
+        generated = expand_template_features(template_id, selected, available)
+    automatic = [feature for feature in generated if feature not in selected]
+    return {
+        "selected": [feature for feature in available if feature in selected],
+        "automatic": automatic,
+        "generated": generated,
+    }
+
+
 def select_generated_features(requested_features):
     """Expand required dependencies and default to the complete ready template."""
     requested = list(dict.fromkeys(requested_features or []))

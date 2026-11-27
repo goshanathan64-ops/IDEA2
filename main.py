@@ -391,6 +391,11 @@ class IDEA2APK(App):
         )
         feature_scroll.add_widget(self.review_feature_list)
         root.add_widget(feature_scroll)
+        self.dependency_preview_label = self.make_label(
+            "AUTOMATIC REQUIREMENTS: None",
+            58, 12
+        )
+        root.add_widget(self.dependency_preview_label)
 
         add_row = BoxLayout(
             orientation="horizontal", size_hint_y=None, height=dp(46), spacing=dp(5)
@@ -434,6 +439,7 @@ class IDEA2APK(App):
                 size_hint_x=None, width=dp(44)
             )
             self.review_feature_checks[feature] = check
+            check.bind(active=lambda *_: self.refresh_dependency_preview())
             label = Label(
                 text=feature + "  [" + status + "]",
                 font_size=sp(12), halign="left", valign="middle"
@@ -453,6 +459,27 @@ class IDEA2APK(App):
             "\\nAdded items are checked by the same template support rules."
         )
         self.blueprint_review_text.text = summary
+        self.refresh_dependency_preview()
+
+    def refresh_dependency_preview(self, *args):
+        from feature_engine import preview_feature_dependencies
+        data = dict(self.pending_blueprint_data or {})
+        selected = [
+            name for name, checkbox in self.review_feature_checks.items()
+            if checkbox.active
+        ]
+        preview = preview_feature_dependencies(
+            data.get("template_id") or "shop_inventory", selected
+        )
+        automatic = preview["automatic"]
+        generated = preview["generated"]
+        if hasattr(self, "dependency_preview_label"):
+            self.dependency_preview_label.text = (
+                "AUTOMATIC REQUIREMENTS: " +
+                (", ".join(automatic) if automatic else "None") +
+                "\\nFINAL GENERATED FEATURES: " +
+                (", ".join(generated) if generated else "None")
+            )
 
     def add_review_feature(self, *args):
         if not self.pending_blueprint_data:

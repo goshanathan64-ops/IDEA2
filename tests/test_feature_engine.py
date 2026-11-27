@@ -1,6 +1,6 @@
 import unittest
 
-from feature_engine import FEATURE_SOURCE_CHECKS, analyze_blueprint, canonical_feature, prepare_blueprint_review, apply_blueprint_feature_selection, repair_generated_source, select_generated_features, split_requested_features, validate_feature_coverage, validate_generated_source
+from feature_engine import FEATURE_SOURCE_CHECKS, analyze_blueprint, canonical_feature, prepare_blueprint_review, apply_blueprint_feature_selection, preview_feature_dependencies, repair_generated_source, select_generated_features, split_requested_features, validate_feature_coverage, validate_generated_source
 
 
 class FeatureEngineTests(unittest.TestCase):
@@ -174,6 +174,49 @@ class FeatureEngineTests(unittest.TestCase):
         self.assertFalse(plan["ready"])
         self.assertEqual(plan["available"], [])
         self.assertEqual(len(plan["unsupported"]), 2)
+
+    def test_dependency_preview_for_shop_shows_required_stock_and_product_features(self):
+        preview = preview_feature_dependencies(
+            "shop_inventory", ["record_sales"]
+        )
+        self.assertEqual(preview["selected"], ["record_sales"])
+        self.assertEqual(
+            preview["automatic"],
+            ["product_catalogue", "stock_tracking"],
+        )
+        self.assertEqual(
+            preview["generated"],
+            ["product_catalogue", "stock_tracking", "record_sales"],
+        )
+
+    def test_dependency_preview_for_other_templates_is_transparent(self):
+        cases = [
+            ("expense_tracker", ["category_tracking"], ["income_records", "expense_records"]),
+            ("school_records", ["attendance_tracking"], ["student_records"]),
+            ("booking_appointments", ["booking_history"], ["booking_records"]),
+            ("task_manager", ["due_dates"], ["task_records"]),
+            ("customer_manager", ["contact_details"], ["customer_profiles"]),
+        ]
+        for template_id, selected, expected in cases:
+            with self.subTest(template_id=template_id):
+                preview = preview_feature_dependencies(template_id, selected)
+                self.assertEqual(preview["selected"], selected)
+                self.assertEqual(preview["automatic"], expected)
+                self.assertEqual(
+                    preview["generated"],
+                    expected + selected,
+                )
+
+    def test_dependency_preview_does_not_add_unrelated_features(self):
+        preview = preview_feature_dependencies(
+            "task_manager", ["task_records"]
+        )
+        self.assertEqual(preview["automatic"], [])
+        self.assertEqual(preview["generated"], ["task_records"])
+
+    def test_dependency_preview_unknown_template_is_safe(self):
+        preview = preview_feature_dependencies("future_template", ["anything"])
+        self.assertEqual(preview, {"selected": [], "automatic": [], "generated": []})
 
     def test_feature_selection_adds_dependencies_and_omits_unrequested_features(self):
         selected = select_generated_features(["record_sales"])
