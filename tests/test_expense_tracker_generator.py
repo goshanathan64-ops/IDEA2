@@ -54,6 +54,7 @@ class ExpenseTrackerGeneratorTests(unittest.TestCase):
         })
         app_class = self.load_app_class(source)
         app = app_class()
+        app.summary_label = types.SimpleNamespace(text="")
         app.db = sqlite3.connect(":memory:")
         app.create_tables()
         return app, source
