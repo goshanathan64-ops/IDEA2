@@ -778,6 +778,42 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
             self.assertEqual(sorted(os.listdir(directory)), before)
         app.db.close()
 
+    def test_shop_restore_rejection_preserves_current_database_and_valid_backup(self):
+        app = self.load_app("shop_inventory", "Failed Restore Data Preservation")
+        with tempfile.TemporaryDirectory() as backup_root:
+            app.user_data_dir = backup_root
+            directory = os.path.join(backup_root, "backups")
+            os.makedirs(directory)
+            app.db.execute(
+                "INSERT INTO products (name, quantity, selling_price, currency) VALUES (?, ?, ?, ?)",
+                ("Keep current stock", 11, 4.0, "USD"),
+            )
+            app.db.commit()
+            valid_backup = app._create_backup_file()
+            with open(valid_backup, "rb") as handle:
+                original_backup_bytes = handle.read()
+            invalid_backup = os.path.join(directory, "my_shop_rejected.db")
+            with open(invalid_backup, "wb") as handle:
+                handle.write(b"invalid sqlite content")
+
+            with self.assertRaisesRegex(ValueError, "invalid or incomplete"):
+                app._restore_backup(invalid_backup)
+
+            self.assertEqual(
+                app.db.execute(
+                    "SELECT quantity FROM products WHERE name = ?",
+                    ("Keep current stock",),
+                ).fetchone()[0],
+                11,
+            )
+            with open(valid_backup, "rb") as handle:
+                self.assertEqual(handle.read(), original_backup_bytes)
+            self.assertEqual(
+                sorted(os.listdir(directory)),
+                ["my_shop_rejected.db", os.path.basename(valid_backup)],
+            )
+        app.db.close()
+
     def test_shop_restore_rejects_empty_backup_file(self):
         app = self.load_app("shop_inventory", "Reject Empty Backup")
         with tempfile.TemporaryDirectory() as backup_root:
