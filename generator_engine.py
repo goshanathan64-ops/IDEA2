@@ -615,14 +615,14 @@ class GeneratedApp(App):
             raise ValueError("Hard-linked backup files cannot be restored.")
         if not os.access(supplied_path, os.R_OK):
             raise ValueError("The selected backup is not readable.")
-        if candidate_stat.st_size <= 0:
-            raise ValueError("The selected backup is empty.")
         candidate = os.path.realpath(supplied_path)
         if os.path.dirname(candidate) != directory:
             raise ValueError("Choose a backup from this app's local backup folder.")
         filename = os.path.basename(candidate)
         if not (filename.startswith("my_shop_") and filename.endswith(".db")):
             raise ValueError("The selected file is not a recognized shop backup.")
+        if candidate_stat.st_size <= 0:
+            raise ValueError("The selected backup is empty.")
         if not os.path.isfile(candidate) or not self._is_valid_backup_file(candidate):
             raise ValueError("The selected backup is invalid or incomplete. Current data was not changed.")
         # Preserve current data before replacing it with the selected backup.
