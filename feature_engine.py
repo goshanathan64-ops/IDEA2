@@ -53,6 +53,33 @@ ALIASES = {
     "cost price tracking": "cost_price_tracking", "product cost prices": "cost_price_tracking",
     "profit/loss summaries": "profit_loss_reports",
     "profit and loss summaries": "profit_loss_reports", "profit reports": "profit_loss_reports",
+    # Plain-language requests commonly entered by first-time app builders.
+    "add products": "product_catalogue", "manage products": "product_catalogue",
+    "product list": "product_catalogue", "inventory tracking": "stock_tracking",
+    "stock levels": "stock_tracking", "manage stock": "stock_tracking",
+    "sell products": "record_sales", "sales recording": "record_sales",
+    "sales history": "record_sales", "manage customers": "customer_records",
+    "customer list": "customer_records", "record expenses": "expense_records",
+    "daily reports": "basic_reports", "monthly reports": "basic_reports",
+    "usd zig": "currency_support", "usd/zig": "currency_support",
+    "usd and zig balances": "currency_support", "local database": "local_sqlite_storage",
+    "admission numbers": "student_records", "class lists": "class_management",
+    "record attendance": "attendance_tracking", "daily attendance": "attendance_tracking",
+    "subject marks": "results_records", "exam marks": "results_records",
+    "school summaries": "basic_reports", "track income": "income_records",
+    "income tracking": "income_records", "expense categories": "category_tracking",
+    "spending categories": "category_tracking", "account balance": "basic_reports",
+    "appointment date and time": "appointment_scheduling",
+    "appointment duration": "appointment_scheduling", "booking calendar": "appointment_scheduling",
+    "booking status updates": "booking_status", "appointment history": "booking_history",
+    "task title": "task_records", "task description": "task_records",
+    "task deadline": "due_dates", "task priority": "priority_levels",
+    "mark as completed": "completion_tracking", "mark completed": "completion_tracking",
+    "search and filter tasks": "task_search",
+    "phone and email contacts": "contact_details", "customer address": "contact_details",
+    "follow up dates": "follow_up_records", "follow-up dates": "follow_up_records",
+    "follow up status": "follow_up_tracking", "follow-up status": "follow_up_tracking",
+    "search customer records": "customer_search",
 }
 
 # Fingerprints must all be present before a requested feature is reported as generated.
@@ -143,9 +170,18 @@ def split_requested_features(value):
 
 
 def canonical_feature(value):
-    text = re.sub(r"\s+", " ", str(value or "").strip().lower())
+    """Normalize a feature phrase and map common natural-language synonyms."""
+    text = str(value or "").strip().lower()
     text = text.replace("_", " ").replace("-", " ")
-    return ALIASES.get(text, text.replace(" ", "_"))
+    text = re.sub(r"[\t\r\n]+", " ", text)
+    text = re.sub(r"\s+", " ", text)
+    text = re.sub(r"^[\W_]+|[\W_]+$", "", text)
+    if text in ALIASES:
+        return ALIASES[text]
+    # Treat harmless punctuation variants consistently without guessing intent.
+    compact = re.sub(r"[^a-z0-9 ]+", " ", text)
+    compact = re.sub(r"\s+", " ", compact).strip()
+    return ALIASES.get(compact, compact.replace(" ", "_"))
 
 
 def analyze_blueprint(data):
@@ -158,11 +194,25 @@ def analyze_blueprint(data):
             requested.append(feature)
     template_id = str(data.get("template_id") or "shop_inventory")
     available = set(TEMPLATE_FEATURE_CHECKS.get(template_id, {}))
+    supported = [item for item in requested if item in available]
+    unsupported = [item for item in requested if item not in available]
     return {
         "template_id": template_id,
         "requested": requested,
-        "available": [item for item in requested if item in available],
-        "unsupported": [item for item in requested if item not in available],
+        "available": supported,
+        "unsupported": unsupported,
+        "feature_status": [
+            {
+                "feature": item,
+                "status": "available" if item in available else "unsupported",
+                "reason": (
+                    "This feature has a generator check for the selected template."
+                    if item in available else
+                    "This feature is not currently implemented for the selected template."
+                ),
+            }
+            for item in requested
+        ],
         "ready": template_id in TEMPLATE_FEATURE_CHECKS,
     }
 
