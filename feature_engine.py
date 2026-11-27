@@ -3,6 +3,16 @@ import ast
 import re
 
 ALIASES = {
+    "bookings": "booking_records", "booking": "booking_records",
+    "booking records": "booking_records", "make bookings": "booking_records",
+    "appointments": "appointment_scheduling", "appointment scheduling": "appointment_scheduling",
+    "schedule appointments": "appointment_scheduling", "appointment calendar": "appointment_scheduling",
+    "customer details": "customer_details", "client details": "customer_details",
+    "customer contact details": "customer_details",
+    "booking status": "booking_status", "appointment status": "booking_status",
+    "booking history": "booking_history", "appointment history": "booking_history",
+    "upcoming appointments": "appointment_scheduling",
+    "students": "student_records", "student records": "student_records", "student profiles": "student_records",
     "students": "student_records", "student records": "student_records", "student profiles": "student_records",
     "classes": "class_management", "class management": "class_management", "class records": "class_management",
     "attendance": "attendance_tracking", "attendance tracking": "attendance_tracking",
@@ -60,10 +70,21 @@ SCHOOL_RECORDS_SOURCE_CHECKS = {
     "local_sqlite_storage": ("sqlite3.connect", "self.user_data_dir"),
 }
 
+BOOKING_APPOINTMENTS_SOURCE_CHECKS = {
+    "booking_records": ("CREATE TABLE IF NOT EXISTS bookings", "def _save_booking", "INSERT INTO bookings"),
+    "appointment_scheduling": ("booking_date TEXT NOT NULL", "def _get_upcoming", "datetime.strptime(day + \" \" + clock"),
+    "customer_details": ("customer_name TEXT NOT NULL", "phone TEXT DEFAULT ''"),
+    "booking_status": ("status TEXT NOT NULL DEFAULT 'scheduled'", "def _update_booking_status"),
+    "booking_history": ("def _get_history", "def show_history"),
+    "basic_reports": ("def _get_summary", "def show_summary"),
+    "local_sqlite_storage": ("sqlite3.connect", "self.user_data_dir"),
+}
+
 TEMPLATE_FEATURE_CHECKS = {
     "shop_inventory": FEATURE_SOURCE_CHECKS,
     "expense_tracker": EXPENSE_TRACKER_SOURCE_CHECKS,
     "school_records": SCHOOL_RECORDS_SOURCE_CHECKS,
+    "booking_appointments": BOOKING_APPOINTMENTS_SOURCE_CHECKS,
 }
 
 
