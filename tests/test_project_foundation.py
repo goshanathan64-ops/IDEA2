@@ -21,6 +21,28 @@ class ProjectSchemaTests(unittest.TestCase):
         self.assertEqual(upgraded["id"], "abc")
         self.assertEqual(upgraded["template_id"], "shop_inventory")
 
+    def test_template_selection_survives_project_normalization(self):
+        for template_id in (
+            "shop_inventory", "school_records", "expense_tracker",
+            "booking_appointments", "task_manager", "customer_manager"
+        ):
+            project = normalize_project({
+                "id": "project-" + template_id,
+                "name": "Test App",
+                "description": "A test app",
+                "target": "Test users",
+                "app_type": "Business",
+                "features": "records",
+                "template_id": template_id,
+            })
+            self.assertEqual(project["template_id"], template_id)
+            errors, _warnings = validate_project(project)
+            self.assertEqual(errors, [])
+
+    def test_blank_template_defaults_to_shop_for_legacy_safety(self):
+        project = normalize_project({"id": "old", "name": "Old Project", "template_id": ""})
+        self.assertEqual(project["template_id"], "shop_inventory")
+
     def test_missing_name_is_an_error(self):
         errors, _warnings = validate_project({"id": "abc", "name": " "})
         self.assertTrue(any("app name" in item.lower() for item in errors))
