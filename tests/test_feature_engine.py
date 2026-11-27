@@ -52,7 +52,7 @@ class FeatureEngineTests(unittest.TestCase):
         )
         self.assertEqual(
             plan["requested"],
-            ["record_sales", "product_catalogue", "stock_tracking", "currency_support", "basic_reports"],
+            ["record_sales", "product_catalogue", "stock_tracking", "basic_reports", "currency_support"],
         )
         self.assertEqual(
             [item["source"] for item in plan["feature_status"]],
