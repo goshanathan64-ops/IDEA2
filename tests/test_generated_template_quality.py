@@ -474,6 +474,25 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
         app.db.close()
 
 
+    def test_shop_backup_is_published_only_after_verification(self):
+        app = self.load_app("shop_inventory", "Atomic Backup Publication")
+        with tempfile.TemporaryDirectory() as backup_root:
+            app.user_data_dir = backup_root
+            backup_path = app._create_backup_file()
+            directory = os.path.join(backup_root, "backups")
+            self.assertTrue(os.path.isfile(backup_path))
+            self.assertTrue(app._is_valid_backup_file(backup_path))
+            self.assertEqual(
+                os.listdir(directory),
+                [os.path.basename(backup_path)],
+            )
+            self.assertFalse(os.path.exists(backup_path + ".tmp"))
+            inventory = app._get_backup_inventory()
+            self.assertEqual(len(inventory), 1)
+            self.assertEqual(inventory[0]["path"], backup_path)
+            self.assertTrue(inventory[0]["valid"])
+        app.db.close()
+
     def test_shop_backup_inventory_sorts_by_actual_creation_time(self):
         app = self.load_app("shop_inventory", "Backup Date Ordering")
         with tempfile.TemporaryDirectory() as backup_root:

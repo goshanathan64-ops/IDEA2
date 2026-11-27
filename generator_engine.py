@@ -354,20 +354,32 @@ class GeneratedApp(App):
 
     def _create_backup_file(self):
         self.db.commit()
+        directory = self._backup_directory()
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        path = os.path.join(self._backup_directory(), "my_shop_{}.db".format(stamp))
-        destination = sqlite3.connect(path)
+        path = os.path.join(directory, "my_shop_{}.db".format(stamp))
+        temporary_path = path + ".tmp"
+        destination = None
         try:
+            # Build and verify the backup under a temporary name. The inventory
+            # only sees the final .db after the atomic same-folder rename.
+            destination = sqlite3.connect(temporary_path)
             self.db.backup(destination)
-        finally:
             destination.close()
-        if not self._is_valid_backup_file(path):
+            destination = None
+            if not self._is_valid_backup_file(temporary_path):
+                raise sqlite3.DatabaseError(
+                    "Backup verification failed; the incomplete backup was discarded."
+                )
+            os.replace(temporary_path, path)
+            return path
+        except Exception:
+            if destination is not None:
+                destination.close()
             try:
-                os.remove(path)
+                os.remove(temporary_path)
             except OSError:
                 pass
-            raise sqlite3.DatabaseError("Backup verification failed; the incomplete backup was discarded.")
-        return path
+            raise
 
     def _get_backup_inventory(self):
         directory = self._backup_directory()
