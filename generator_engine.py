@@ -52,6 +52,8 @@ class GeneratedApp(App):
             ("Products / Inventory", self.show_products),
             ("Add Product", self.add_product),
             ("Record Sale", self.record_sale),
+            ("Sales History", self.show_sales_history),
+            ("Low Stock", self.show_low_stock),
             ("Customers", self.add_customer),
             ("Expenses", self.add_expense),
             ("Reports", self.show_reports),
@@ -215,15 +217,19 @@ class GeneratedApp(App):
             )
         self.popup_message("Products and Inventory", text)
 
-    def record_sale(self, *_args):
-        def save(values):
-            product_name = values["product"].strip()
-            quantity = int(values["quantity"])
-            customer = values["customer"].strip()
-            if not product_name or quantity <= 0:
-                raise ValueError("Enter a product name and a quantity greater than zero.")
+    def _save_sale(self, values):
+        product_name = values["product"].strip()
+        quantity = int(values["quantity"])
+        customer = values.get("customer", "").strip()
+        if not product_name or quantity <= 0:
+            raise ValueError("Enter a product name and a quantity greater than zero.")
+
+        # The sale and stock deduction are one atomic database operation.
+        self.db.execute("BEGIN IMMEDIATE")
+        try:
             row = self.db.execute(
-                "SELECT id, selling_price, quantity, cost_price, currency FROM products WHERE name=? COLLATE NOCASE",
+                "SELECT id, selling_price, quantity, cost_price, currency "
+                "FROM products WHERE name=? COLLATE NOCASE",
                 (product_name,)
             ).fetchone()
             if row is None:
@@ -231,22 +237,73 @@ class GeneratedApp(App):
             product_id, price, stock, cost_price, currency = row
             if quantity > stock:
                 raise ValueError("Not enough stock. Available quantity: {}".format(stock))
+
             self.db.execute(
                 "INSERT INTO sales(product_id, quantity, unit_price, customer, unit_cost, currency, cost_known) "
                 "VALUES(?,?,?,?,?,?,1)",
                 (product_id, quantity, price, customer, cost_price, currency)
             )
-            self.db.execute(
-                "UPDATE products SET quantity=quantity-? WHERE id=?",
-                (quantity, product_id)
+            updated = self.db.execute(
+                "UPDATE products SET quantity=quantity-? WHERE id=? AND quantity>=?",
+                (quantity, product_id, quantity)
             )
+            if updated.rowcount != 1:
+                raise ValueError("Stock changed during the sale. Please try again.")
             self.db.commit()
-            self.status.text = "Sale saved. Total: {:.2f} {}".format(price * quantity, currency)
+            return price * quantity, currency
+        except Exception:
+            self.db.rollback()
+            raise
+
+    def record_sale(self, *_args):
+        def save(values):
+            total, currency = self._save_sale(values)
+            self.status.text = "Sale saved. Total: {:.2f} {}".format(total, currency)
+            self.show_dashboard()
         self.open_form("Record Sale", [
             ("product", "Exact product name"),
             ("quantity", "Quantity sold"),
             ("customer", "Customer name (optional)")
         ], save)
+
+    def _get_sales_history(self, limit=100):
+        return self.db.execute(
+            "SELECT sales.created_at, products.name, sales.quantity, sales.unit_price, "
+            "sales.currency, sales.quantity * sales.unit_price, sales.customer "
+            "FROM sales JOIN products ON products.id=sales.product_id "
+            "ORDER BY sales.id DESC LIMIT ?",
+            (int(limit),)
+        ).fetchall()
+
+    def show_sales_history(self, *_args):
+        rows = self._get_sales_history()
+        if not rows:
+            message = "No sales recorded yet."
+        else:
+            message = "DATE | PRODUCT | QTY | UNIT PRICE | CURRENCY | TOTAL | CUSTOMER\\n"
+            message += "\\n".join(
+                "{} | {} | {} | {:.2f} | {} | {:.2f} | {}".format(*row)
+                for row in rows
+            )
+        self.popup_message("Sales History", message)
+
+    def _get_low_stock_products(self):
+        return self.db.execute(
+            "SELECT name, quantity, low_stock_threshold, currency "
+            "FROM products WHERE quantity <= low_stock_threshold ORDER BY quantity, name"
+        ).fetchall()
+
+    def show_low_stock(self, *_args):
+        rows = self._get_low_stock_products()
+        if not rows:
+            message = "No products need restocking."
+        else:
+            message = "PRODUCT | LEFT IN STOCK | ALERT LEVEL | CURRENCY\\n"
+            message += "\\n".join(
+                "{} | {} | {} | {}".format(*row)
+                for row in rows
+            )
+        self.popup_message("Low-stock products", message)
 
     def add_customer(self, *_args):
         def save(values):
