@@ -344,5 +344,44 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
         app.db.close()
 
 
+    def test_shop_restore_can_recover_the_pre_restore_database(self):
+        app = self.load_app("shop_inventory", "Backup Recovery Round Trip")
+        with tempfile.TemporaryDirectory() as backup_root:
+            app.user_data_dir = backup_root
+            app.db.execute(
+                "INSERT INTO products(name, price, quantity, cost_price, selling_price, currency) "
+                "VALUES(?,?,?,?,?,?)",
+                ("Original stock", 10.0, 5, 6.0, 10.0, "USD"),
+            )
+            app.db.commit()
+            original_backup = app._create_backup_file()
+
+            app.db.execute("DELETE FROM products")
+            app.db.execute(
+                "INSERT INTO products(name, price, quantity, cost_price, selling_price, currency) "
+                "VALUES(?,?,?,?,?,?)",
+                ("Current stock", 20.0, 8, 12.0, 20.0, "ZIG"),
+            )
+            app.db.commit()
+
+            restored = app._restore_latest_backup()
+            self.assertEqual(restored, original_backup)
+            self.assertEqual(
+                [row[0] for row in app.db.execute("SELECT name FROM products")],
+                ["Original stock"],
+            )
+
+            # The pre-restore database was saved automatically and can itself
+            # be restored in a later recovery operation.
+            recovered = app._restore_latest_backup()
+            self.assertNotEqual(recovered, original_backup)
+            self.assertTrue(app._is_valid_backup_file(recovered))
+            self.assertEqual(
+                [row[0] for row in app.db.execute("SELECT name FROM products")],
+                ["Current stock"],
+            )
+        app.db.close()
+
+
 if __name__ == "__main__":
     unittest.main()
