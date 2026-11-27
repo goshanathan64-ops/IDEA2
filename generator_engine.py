@@ -439,27 +439,33 @@ class GeneratedApp(App):
             if connection is not None:
                 connection.close()
 
-    def _restore_latest_backup(self):
-        directory = self._backup_directory()
-        backups = [
-            os.path.join(directory, filename)
-            for filename in os.listdir(directory)
-            if filename.startswith("my_shop_") and filename.endswith(".db")
-        ]
-        valid_backups = [path for path in backups if self._is_valid_backup_file(path)]
-        if not valid_backups:
-            raise ValueError("No backup is available. No valid backup is available on this device.")
-        latest = max(valid_backups, key=os.path.basename)
-        # Preserve the current database before replacing it.
+    def _restore_backup(self, backup_path):
+        directory = os.path.realpath(self._backup_directory())
+        candidate = os.path.realpath(str(backup_path or ""))
+        if os.path.dirname(candidate) != directory:
+            raise ValueError("Choose a backup from this app's local backup folder.")
+        filename = os.path.basename(candidate)
+        if not (filename.startswith("my_shop_") and filename.endswith(".db")):
+            raise ValueError("The selected file is not a recognized shop backup.")
+        if not os.path.isfile(candidate) or not self._is_valid_backup_file(candidate):
+            raise ValueError("The selected backup is invalid or incomplete. Current data was not changed.")
+        # Preserve current data before replacing it with the selected backup.
         self._create_backup_file()
-        source = sqlite3.connect(latest)
+        source = sqlite3.connect(candidate)
         try:
             source.backup(self.db)
             self.db.execute("PRAGMA foreign_keys = ON")
             self.db.commit()
         finally:
             source.close()
-        return latest
+        return candidate
+
+    def _restore_latest_backup(self):
+        inventory = self._get_backup_inventory()
+        valid = [item["path"] for item in inventory if item["valid"]]
+        if not valid:
+            raise ValueError("No backup is available. No valid backup is available on this device.")
+        return self._restore_backup(valid[0])
 
     def confirm_restore_backup(self, *_args):
         body = BoxLayout(orientation="vertical", padding=dp(12), spacing=dp(8))

@@ -344,6 +344,51 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
         app.db.close()
 
 
+    def test_shop_restore_selected_backup_restores_that_version_and_preserves_current(self):
+        app = self.load_app("shop_inventory", "Selected Backup Restore")
+        with tempfile.TemporaryDirectory() as backup_root:
+            app.user_data_dir = backup_root
+            app.db.execute(
+                "INSERT INTO products(name, price, quantity, cost_price, selling_price, currency) "
+                "VALUES(?,?,?,?,?,?)",
+                ("Older saved stock", 10.0, 5, 6.0, 10.0, "USD"),
+            )
+            app.db.commit()
+            selected = app._create_backup_file()
+            app.db.execute("DELETE FROM products")
+            app.db.execute(
+                "INSERT INTO products(name, price, quantity, cost_price, selling_price, currency) "
+                "VALUES(?,?,?,?,?,?)",
+                ("Current stock", 20.0, 8, 12.0, 20.0, "ZIG"),
+            )
+            app.db.commit()
+            app._create_backup_file()
+            restored = app._restore_backup(selected)
+            self.assertEqual(restored, selected)
+            self.assertEqual(
+                [row[0] for row in app.db.execute("SELECT name FROM products")],
+                ["Older saved stock"],
+            )
+            preserved = [
+                row[0] for row in app.db.execute(
+                    "SELECT name FROM products WHERE name='Older saved stock'"
+                )
+            ]
+            self.assertEqual(preserved, ["Older saved stock"])
+            self.assertGreaterEqual(len(app._get_backup_inventory()), 3)
+        app.db.close()
+
+    def test_shop_restore_rejects_backup_outside_local_backup_folder(self):
+        app = self.load_app("shop_inventory", "Reject External Restore")
+        with tempfile.TemporaryDirectory() as backup_root:
+            app.user_data_dir = backup_root
+            outside = os.path.join(backup_root, "outside.db")
+            connection = sqlite3.connect(outside)
+            connection.close()
+            with self.assertRaisesRegex(ValueError, "local backup folder"):
+                app._restore_backup(outside)
+        app.db.close()
+
     def test_shop_restore_can_recover_the_pre_restore_database(self):
         app = self.load_app("shop_inventory", "Backup Recovery Round Trip")
         with tempfile.TemporaryDirectory() as backup_root:
