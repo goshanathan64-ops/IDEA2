@@ -233,7 +233,7 @@ class FeatureEngineTests(unittest.TestCase):
         self.assertTrue(result["errors"])
 
     def test_generated_feature_consistency_passes_exact_declaration_and_source(self):
-        source = "ENABLED_FEATURES = ['product_catalogue']\\n# CREATE TABLE IF NOT EXISTS products\\ndef show_products():\\n    pass"
+        source = "ENABLED_FEATURES = ['product_catalogue']" + chr(10) + "# CREATE TABLE IF NOT EXISTS products" + chr(10) + "def show_products():" + chr(10) + "    pass"
         result = verify_generated_feature_consistency(source, ["product_catalogue"])
         self.assertTrue(result["consistent"])
         self.assertEqual(result["actual"], ["product_catalogue"])
