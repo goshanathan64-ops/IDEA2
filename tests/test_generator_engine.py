@@ -250,6 +250,58 @@ class GeneratorEngineTests(unittest.TestCase):
             self.assertGreaterEqual(len(backups), 2)
             app.db.close()
 
+    def test_customer_save_updates_existing_name_and_searches(self):
+        app = self.make_shop_with_product()
+        app._save_customer("Tariro", "0771000000")
+        app._save_customer("tariro", "0772000000")
+        self.assertEqual(app.db.execute("SELECT COUNT(*) FROM customers").fetchone()[0], 1)
+        self.assertEqual(app._get_customers("0772"), [("Tariro", "0772000000")])
+        app.db.close()
+
+    def test_expense_validation_and_history(self):
+        app = self.make_shop_with_product()
+        with self.assertRaisesRegex(ValueError, "positive"):
+            app._save_expense("Transport", "-2", "USD")
+        with self.assertRaisesRegex(ValueError, "Currency"):
+            app._save_expense("Transport", "2", "RAND")
+        app._save_expense("Transport", "2.50", "USD")
+        app._save_expense("Airtime", "4", "ZIG")
+        history = app._get_expense_history()
+        self.assertEqual(len(history), 2)
+        self.assertEqual({row[3] for row in history}, {"USD", "ZIG"})
+        app.db.close()
+
+    def test_daily_and_monthly_reports_split_currencies_and_costs(self):
+        app = self.make_shop_with_product()
+        app.db.execute(
+            "INSERT INTO sales(product_id, quantity, unit_price, unit_cost, currency, cost_known, created_at) "
+            "VALUES(1, 2, 3, 1.5, 'USD', 1, '2026-11-27 10:00:00')"
+        )
+        app.db.execute(
+            "INSERT INTO sales(product_id, quantity, unit_price, unit_cost, currency, cost_known, created_at) "
+            "VALUES(1, 1, 3, 0, 'ZIG', 0, '2026-11-27 11:00:00')"
+        )
+        app.db.execute(
+            "INSERT INTO expenses(description, amount, currency, created_at) "
+            "VALUES('Transport', 1, 'USD', '2026-11-27 12:00:00')"
+        )
+        app.db.execute(
+            "INSERT INTO expenses(description, amount, currency, created_at) "
+            "VALUES('Airtime', 2, 'ZIG', '2026-11-26 12:00:00')"
+        )
+        app.db.commit()
+        daily = app._get_period_totals("daily", "2026-11-27")
+        self.assertEqual(daily["USD"]["revenue"], 6.0)
+        self.assertEqual(daily["USD"]["gross_profit_known"], 3.0)
+        self.assertEqual(daily["USD"]["expenses"], 1.0)
+        self.assertEqual(daily["ZIG"]["revenue"], 3.0)
+        self.assertEqual(daily["ZIG"]["unknown_cost_sales"], 1)
+        monthly = app._get_period_totals("monthly", "2026-11")
+        self.assertEqual(monthly["USD"]["revenue"], 6.0)
+        self.assertEqual(monthly["ZIG"]["expenses"], 2.0)
+        self.assertEqual(monthly["ZIG"]["unknown_cost_sales"], 1)
+        app.db.close()
+
     def test_unready_template_is_not_misrepresented_as_shop_app(self):
         with self.assertRaisesRegex(ValueError, "not ready to generate"):
             generate_app_code({
