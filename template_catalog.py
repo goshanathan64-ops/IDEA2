@@ -23,10 +23,16 @@ TEMPLATES = [
         "id": "school_records",
         "name": "School Records",
         "category": "education",
-        "status": "planned",
-        "description": "Student profiles, attendance, classes and results.",
-        "supported_features": [],
-        "unsupported_features": [],
+        "status": "ready",
+        "description": "Offline student profiles, class lists, attendance, marks and school summaries.",
+        "supported_features": [
+            "student_records", "class_management", "attendance_tracking",
+            "results_records", "basic_reports", "local_sqlite_storage"
+        ],
+        "unsupported_features": [
+            "parent_portal", "online_payments", "timetable_generation",
+            "sms_notifications", "cloud_sync", "multi_user_login"
+        ],
     },
     {
         "id": "expense_tracker",
