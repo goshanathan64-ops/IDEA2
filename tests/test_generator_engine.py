@@ -331,6 +331,14 @@ class GeneratorEngineTests(unittest.TestCase):
         self.assertIn('("record_sales", "Record Sale", self.record_sale)', source)
         self.assertIn('("expense_records", "Record Expense", self.add_expense)', source)
 
+    def test_generated_shop_report_includes_feature_consistency_result(self):
+        source = generate_app_code({
+            "template_id": "shop_inventory", "name": "Consistency Check",
+            "features": "record sales",
+        })
+        self.assertIn("# Feature consistency: PASS", source)
+        self.assertIn("# Generated feature declaration: product_catalogue, stock_tracking, record_sales", source)
+
     def test_blueprint_report_separates_unsupported_from_missing_features(self):
         source = generate_app_code({
             "template_id": "shop_inventory",

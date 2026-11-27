@@ -440,6 +440,43 @@ def select_generated_features(requested_features):
     return [feature for feature in FEATURE_SOURCE_CHECKS if feature in selected]
 
 
+def verify_generated_feature_consistency(source, expected_features, template_id="shop_inventory"):
+    """Compare generated ENABLED_FEATURES with the approved plan and source checks."""
+    expected = list(dict.fromkeys(expected_features or []))
+    actual = []
+    errors = []
+    try:
+        tree = ast.parse(source if isinstance(source, str) else "")
+        for node in tree.body:
+            if isinstance(node, ast.Assign) and any(
+                isinstance(target, ast.Name) and target.id == "ENABLED_FEATURES"
+                for target in node.targets
+            ):
+                value = ast.literal_eval(node.value)
+                if isinstance(value, list) and all(isinstance(item, str) for item in value):
+                    actual = value
+                else:
+                    errors.append("ENABLED_FEATURES must be a list of feature names.")
+                break
+        else:
+            errors.append("Generated source has no ENABLED_FEATURES declaration.")
+    except (SyntaxError, ValueError, TypeError) as error:
+        errors.append("Could not inspect generated feature declaration: " + str(error))
+    coverage = validate_feature_coverage(source, expected, template_id)
+    missing = [item for item in expected if item not in actual]
+    unexpected = [item for item in actual if item not in expected]
+    if missing:
+        errors.append("Approved features absent from ENABLED_FEATURES: " + ", ".join(missing))
+    if unexpected:
+        errors.append("Unexpected features in ENABLED_FEATURES: " + ", ".join(unexpected))
+    if coverage["missing"]:
+        errors.append("Approved features not verified in source: " + ", ".join(coverage["missing"]))
+    return {
+        "consistent": not errors, "expected": expected, "actual": actual,
+        "missing": coverage["missing"], "unexpected": unexpected, "errors": errors,
+    }
+
+
 def validate_feature_coverage(source, requested_features, template_id="shop_inventory"):
     """Verify requested features against the selected template fingerprints."""
     implemented, missing = [], []

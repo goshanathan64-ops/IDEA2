@@ -225,6 +225,19 @@ class FeatureEngineTests(unittest.TestCase):
     def test_empty_feature_list_keeps_full_ready_template(self):
         self.assertEqual(select_generated_features([]), list(FEATURE_SOURCE_CHECKS))
 
+    def test_generated_feature_consistency_detects_mismatch(self):
+        source = "ENABLED_FEATURES = ['product_catalogue']\\n"
+        result = verify_generated_feature_consistency(source, ["product_catalogue", "stock_tracking"])
+        self.assertFalse(result["consistent"])
+        self.assertIn("stock_tracking", result["missing"])
+        self.assertTrue(result["errors"])
+
+    def test_generated_feature_consistency_passes_exact_declaration_and_source(self):
+        source = "ENABLED_FEATURES = ['product_catalogue']\\n# CREATE TABLE IF NOT EXISTS products\\ndef show_products():\\n    pass"
+        result = verify_generated_feature_consistency(source, ["product_catalogue"])
+        self.assertTrue(result["consistent"])
+        self.assertEqual(result["actual"], ["product_catalogue"])
+
     def test_coverage_requires_all_source_fingerprints(self):
         source = "CREATE TABLE IF NOT EXISTS products def show_products quantity INTEGER def _save_sale quantity=quantity-?"
         coverage = validate_feature_coverage(source, ["product_catalogue", "stock_tracking", "record_sales"])

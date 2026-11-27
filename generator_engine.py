@@ -9,7 +9,7 @@ import re
 import sqlite3
 from datetime import datetime
 
-from feature_engine import analyze_blueprint, repair_generated_source, select_generated_features, validate_feature_coverage, validate_generated_source
+from feature_engine import analyze_blueprint, repair_generated_source, select_generated_features, validate_feature_coverage, validate_generated_source, verify_generated_feature_consistency
 
 
 def generate_app_code(data):
@@ -768,7 +768,7 @@ if __name__ == "__main__":
         template_id=template_id,
     )
     generated = repair["source"]
-    coverage = validate_feature_coverage(generated, selected_features)
+    coverage = validate_feature_coverage(generated, selected_features, template_id=template_id)
     validation = validate_generated_source(generated)
     if not validation["valid"]:
         raise ValueError("; ".join(validation["errors"]))
@@ -787,6 +787,9 @@ if __name__ == "__main__":
         "# Selected for app UI (including dependencies): " + (", ".join(selected_features) or "none"),
         "# Actually generated and verified: " + (", ".join(coverage["implemented"]) or "none"),
         "# Missing supported features: " + (", ".join(coverage["missing"]) or "none"),
+        "# Generated feature declaration: " + (", ".join(consistency["actual"]) or "none"),
+        "# Feature consistency: " + ("PASS" if consistency["consistent"] else "FAIL"),
+        "# Consistency diagnostics: " + ("; ".join(consistency["errors"]) or "none"),
         "# Unsupported by selected template: " + (", ".join(plan["unsupported"]) or "none"),
         "# Python syntax validation: " + ("PASS" if validation["valid"] else "FAIL"),
         "# Automatic repair attempted: " + ("YES" if repair["attempted"] else "NO"),
