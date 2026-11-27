@@ -16,7 +16,7 @@ class FeatureEngineTests(unittest.TestCase):
         )
 
     def test_maps_common_shop_wording(self):
-        self.assertEqual(canonical_feature("USD and ZiG support"), "usd_and_zig_support")
+        self.assertEqual(canonical_feature("USD and ZiG support"), "currency_support")
         self.assertEqual(canonical_feature("product catalogue"), "product_catalogue")
         self.assertEqual(canonical_feature("low-stock alerts"), "low_stock_alerts")
 
@@ -27,11 +27,11 @@ class FeatureEngineTests(unittest.TestCase):
         })
         self.assertEqual(
             plan["supported"],
-            ["product_catalogue", "stock_tracking", "record_sales"],
+            ["product_catalogue", "stock_tracking", "record_sales", "currency_support"],
         )
         self.assertEqual(
             plan["unsupported"],
-            ["usd_and_zig_support", "backup/restore"],
+            ["backup/restore"],
         )
 
     def test_unknown_template_does_not_claim_support(self):
