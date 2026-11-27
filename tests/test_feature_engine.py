@@ -1,6 +1,6 @@
 import unittest
 
-from feature_engine import analyze_blueprint, canonical_feature, split_requested_features, validate_feature_coverage, validate_generated_source
+from feature_engine import analyze_blueprint, canonical_feature, repair_generated_source, split_requested_features, validate_feature_coverage, validate_generated_source
 
 
 class FeatureEngineTests(unittest.TestCase):
@@ -29,6 +29,42 @@ class FeatureEngineTests(unittest.TestCase):
         self.assertEqual(coverage["implemented"], ["product_catalogue", "stock_tracking"])
         self.assertEqual(coverage["missing"], ["record_sales"])
         self.assertFalse(coverage["complete"])
+
+    def test_repair_retries_once_and_accepts_valid_regeneration(self):
+        calls = []
+        def regenerate():
+            calls.append(True)
+            return "CREATE TABLE IF NOT EXISTS products\\ndef show_products"
+        result = repair_generated_source(
+            "incomplete source", ["product_catalogue"], regenerate
+        )
+        self.assertTrue(result["attempted"])
+        self.assertTrue(result["repaired"])
+        self.assertEqual(result["attempts"], 1)
+        self.assertEqual(result["unresolved"], [])
+        self.assertEqual(len(calls), 1)
+
+    def test_repair_reports_unresolved_features_without_looping(self):
+        calls = []
+        def regenerate():
+            calls.append(True)
+            return "still incomplete"
+        result = repair_generated_source(
+            "incomplete source", ["product_catalogue"], regenerate
+        )
+        self.assertTrue(result["attempted"])
+        self.assertFalse(result["repaired"])
+        self.assertEqual(result["unresolved"], ["product_catalogue"])
+        self.assertEqual(len(calls), 1)
+
+    def test_repair_does_not_call_regenerator_when_source_is_complete(self):
+        calls = []
+        source = "CREATE TABLE IF NOT EXISTS products\\ndef show_products"
+        result = repair_generated_source(
+            source, ["product_catalogue"], lambda: calls.append(True)
+        )
+        self.assertFalse(result["attempted"])
+        self.assertEqual(calls, [])
 
     def test_validates_python_syntax(self):
         self.assertTrue(validate_generated_source("value = 3")["valid"])
