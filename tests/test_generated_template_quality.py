@@ -205,5 +205,55 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
         app.db.close()
 
 
+    def test_shop_backup_restores_data_and_preserves_pre_restore_database(self):
+        app = self.load_app("shop_inventory", "Backup Test")
+        with tempfile.TemporaryDirectory() as backup_root:
+            app.user_data_dir = backup_root
+            app.db.execute(
+                "INSERT INTO products(name, price, quantity, cost_price, selling_price, currency) "
+                "VALUES(?,?,?,?,?,?)",
+                ("Original stock", 12.0, 7, 8.0, 12.0, "USD"),
+            )
+            app.db.commit()
+            backup_path = app._create_backup_file()
+            self.assertTrue(os.path.isfile(backup_path))
+
+            app.db.execute("DELETE FROM products")
+            app.db.execute(
+                "INSERT INTO products(name, price, quantity, cost_price, selling_price, currency) "
+                "VALUES(?,?,?,?,?,?)",
+                ("Newer stock", 20.0, 4, 15.0, 20.0, "ZIG"),
+            )
+            app.db.commit()
+
+            restored_path = app._restore_latest_backup()
+            self.assertEqual(restored_path, backup_path)
+            names = [row[0] for row in app.db.execute("SELECT name FROM products ORDER BY name")]
+            self.assertEqual(names, ["Original stock"])
+
+            backups = [
+                name for name in os.listdir(os.path.join(backup_root, "backups"))
+                if name.endswith(".db")
+            ]
+            self.assertGreaterEqual(len(backups), 2)
+            preserved = []
+            for filename in backups:
+                connection = sqlite3.connect(os.path.join(backup_root, "backups", filename))
+                try:
+                    preserved.extend(row[0] for row in connection.execute("SELECT name FROM products"))
+                finally:
+                    connection.close()
+            self.assertIn("Newer stock", preserved)
+        app.db.close()
+
+    def test_shop_restore_without_backup_returns_clear_error(self):
+        app = self.load_app("shop_inventory", "Empty Backup Test")
+        with tempfile.TemporaryDirectory() as backup_root:
+            app.user_data_dir = backup_root
+            with self.assertRaisesRegex(ValueError, "No backup"):
+                app._restore_latest_backup()
+        app.db.close()
+
+
 if __name__ == "__main__":
     unittest.main()
