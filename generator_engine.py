@@ -23,6 +23,7 @@ def generate_app_code(data):
 
     template = r'''import os
 import sqlite3
+from datetime import datetime
 
 from kivy.app import App
 from kivy.metrics import dp, sp
