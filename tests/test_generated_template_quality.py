@@ -642,6 +642,34 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
             self.assertEqual(row[0], 7)
         app.db.close()
 
+    def test_shop_restore_connection_remains_usable_after_restore(self):
+        app = self.load_app("shop_inventory", "Restore Connection Usability")
+        with tempfile.TemporaryDirectory() as backup_root:
+            app.user_data_dir = backup_root
+            app.db.execute(
+                "INSERT INTO products(name, price, quantity, cost_price, selling_price, currency) "
+                "VALUES(?,?,?,?,?,?)",
+                ("Restored stock", 10.0, 4, 6.0, 10.0, "USD"),
+            )
+            app.db.commit()
+            selected = app._create_backup_file()
+            app.db.execute("DELETE FROM products")
+            app.db.commit()
+            app._restore_backup(selected)
+            app.db.execute(
+                "INSERT INTO products(name, price, quantity, cost_price, selling_price, currency) "
+                "VALUES(?,?,?,?,?,?)",
+                ("Post-restore stock", 15.0, 3, 9.0, 15.0, "ZIG"),
+            )
+            app.db.commit()
+            names = [
+                row[0] for row in app.db.execute(
+                    "SELECT name FROM products ORDER BY name"
+                )
+            ]
+            self.assertEqual(names, ["Post-restore stock", "Restored stock"])
+        app.db.close()
+
     def test_shop_restore_keeps_selected_backup_snapshot_unchanged(self):
         app = self.load_app("shop_inventory", "Restore Snapshot Integrity")
         with tempfile.TemporaryDirectory() as backup_root:
