@@ -168,5 +168,42 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
         app.db.close()
 
 
+    def test_shop_reports_keep_usd_and_zig_revenue_costs_and_expenses_separate(self):
+        app = self.load_app("shop_inventory", "Currency Separation")
+        app.db.executemany(
+            "INSERT INTO products(name, price, quantity, cost_price, selling_price, currency) "
+            "VALUES(?,?,?,?,?,?)",
+            [
+                ("USD Item", 10.0, 10, 6.0, 10.0, "USD"),
+                ("ZiG Item", 75.0, 10, 45.0, 75.0, "ZIG"),
+            ],
+        )
+        app.db.commit()
+
+        usd_total, usd_currency = app._save_sale({"product": "USD Item", "quantity": "2"})
+        zig_total, zig_currency = app._save_sale({"product": "ZiG Item", "quantity": "2"})
+        self.assertEqual((usd_total, usd_currency), (20.0, "USD"))
+        self.assertEqual((zig_total, zig_currency), (150.0, "ZIG"))
+
+        app._save_expense("USD transport", 3.0, "USD")
+        app._save_expense("ZiG supplies", 20.0, "ZIG")
+        today = __import__("datetime").datetime.now().strftime("%Y-%m-%d")
+        totals = app._get_period_totals("daily", today)
+
+        self.assertEqual(totals["USD"]["revenue"], 20.0)
+        self.assertEqual(totals["USD"]["known_cost"], 12.0)
+        self.assertEqual(totals["USD"]["gross_profit_known"], 8.0)
+        self.assertEqual(totals["USD"]["expenses"], 3.0)
+        self.assertEqual(totals["USD"]["net_result_known_costs"], 5.0)
+        self.assertEqual(totals["ZIG"]["revenue"], 150.0)
+        self.assertEqual(totals["ZIG"]["known_cost"], 90.0)
+        self.assertEqual(totals["ZIG"]["gross_profit_known"], 60.0)
+        self.assertEqual(totals["ZIG"]["expenses"], 20.0)
+        self.assertEqual(totals["ZIG"]["net_result_known_costs"], 40.0)
+        self.assertEqual(totals["USD"]["sale_count"], 1)
+        self.assertEqual(totals["ZIG"]["sale_count"], 1)
+        app.db.close()
+
+
 if __name__ == "__main__":
     unittest.main()
