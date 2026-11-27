@@ -67,6 +67,7 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
 
     def test_expense_tracker_saves_income_and_expense_and_calculates_balances(self):
         app = self.load_app("expense_tracker", "Test Accounts")
+        app.summary_label = types.SimpleNamespace(text="")
         app._save_income({"description": "Shop sales", "category": "Sales", "amount": "25", "currency": "USD"})
         app._save_expense({"description": "Transport", "category": "Travel", "amount": "5", "currency": "USD"})
         totals = app._get_summary()
