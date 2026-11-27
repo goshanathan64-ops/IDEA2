@@ -29,10 +29,11 @@ class ProjectSchemaTests(unittest.TestCase):
         errors, _warnings = validate_project({"id": "abc", "name": "x" * 41})
         self.assertTrue(errors)
 
-    def test_only_shop_template_is_ready(self):
+    def test_only_implemented_templates_are_ready(self):
         ready = [item["id"] for item in list_templates() if item["status"] == "ready"]
-        self.assertEqual(ready, ["shop_inventory"])
+        self.assertEqual(ready, ["shop_inventory", "expense_tracker"])
         self.assertEqual(get_template("shop_inventory")["status"], "ready")
+        self.assertEqual(get_template("expense_tracker")["status"], "ready")
         self.assertEqual(get_template("school_records")["status"], "planned")
 
     def test_support_report_does_not_claim_unknown_features(self):
