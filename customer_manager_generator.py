@@ -1,5 +1,5 @@
 """Independent offline Customer Manager app generator for IDEA2APK V3."""
-from feature_engine import analyze_blueprint, expand_template_features, validate_feature_coverage, validate_generated_source
+from feature_engine import analyze_blueprint, expand_template_features, validate_feature_coverage, validate_generated_source, run_self_healing_pipeline
 
 CUSTOMER_FEATURES = [
     "customer_profiles", "contact_details", "customer_notes", "follow_up_records",
@@ -322,7 +322,11 @@ def generate_customer_manager_code(data):
     generated = TEMPLATE.replace("__APP_TITLE__", repr(name))
     generated = generated.replace("__APP_DESCRIPTION__", repr(description))
     generated = generated.replace("__ENABLED_FEATURES__", repr(selected))
-    checks = validate_feature_coverage(generated, selected, template_id="customer_manager")
+    pipeline = run_self_healing_pipeline(
+        generated, selected, "customer_manager", regenerate_callback=lambda: TEMPLATE.replace("__APP_TITLE__", repr(name)).replace("__APP_DESCRIPTION__", repr(description)).replace("__ENABLED_FEATURES__", repr(selected))
+    )
+    generated = pipeline["source"]
+    checks = pipeline["coverage"]
     generated += "\n".join([
         "",
         "# IDEA2APK V3 BLUEPRINT VERIFICATION",
@@ -332,6 +336,8 @@ def generate_customer_manager_code(data):
         "# Actually generated and verified: " + (", ".join(checks["implemented"]) or "none"),
         "# Missing from generated code: " + (", ".join(checks["missing"]) or "none"),
         "# Unsupported by selected template: " + (", ".join(plan["unsupported"]) or "none"),
+        "# Repair attempted: " + ("YES" if pipeline["repair"]["attempted"] else "NO"),
+        "# Repair status: " + pipeline["repair"]["status"],
         "# Completion: " + ("COMPLETE" if checks["complete"] and not plan["unsupported"] else "PARTIAL - review unsupported or missing features"),
         "# Source checks are deterministic fingerprints, not a substitute for device testing.",
         "",

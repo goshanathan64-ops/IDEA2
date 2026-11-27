@@ -563,3 +563,23 @@ def validate_generated_source(source):
         return {"valid": False, "errors": ["Python source validation failed: {}".format(error)]}
     return {"valid": True, "errors": []}
 
+
+
+def run_self_healing_pipeline(source, expected_features, template_id, regenerate_callback):
+    """Verify generation and perform one controlled regeneration when needed."""
+    consistency = lambda candidate: verify_generated_feature_consistency(
+        candidate, expected_features, template_id=template_id
+    )
+    repair = repair_generated_source(
+        source, expected_features, regenerate_callback=regenerate_callback,
+        template_id=template_id, consistency_callback=consistency
+    )
+    final_source = repair["source"]
+    validation = validate_generated_source(final_source)
+    coverage = validate_feature_coverage(final_source, expected_features, template_id)
+    consistency_result = consistency(final_source)
+    complete = validation["valid"] and coverage["complete"] and consistency_result["consistent"]
+    return {
+        "source": final_source, "repair": repair, "validation": validation,
+        "coverage": coverage, "consistency": consistency_result, "complete": complete,
+    }

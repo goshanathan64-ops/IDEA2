@@ -1,6 +1,6 @@
 import unittest
 
-from feature_engine import FEATURE_SOURCE_CHECKS, analyze_blueprint, canonical_feature, prepare_blueprint_review, apply_blueprint_feature_selection, preview_feature_dependencies, repair_generated_source, select_generated_features, split_requested_features, validate_feature_coverage, validate_generated_source, verify_generated_feature_consistency
+from feature_engine import FEATURE_SOURCE_CHECKS, analyze_blueprint, canonical_feature, prepare_blueprint_review, apply_blueprint_feature_selection, preview_feature_dependencies, repair_generated_source, select_generated_features, split_requested_features, validate_feature_coverage, validate_generated_source, verify_generated_feature_consistency, run_self_healing_pipeline
 
 
 class FeatureEngineTests(unittest.TestCase):
@@ -333,6 +333,23 @@ class FeatureEngineTests(unittest.TestCase):
         self.assertTrue(validate_generated_source("value = 3")["valid"])
         self.assertFalse(validate_generated_source("def broken(:")["valid"])
 
+
+    def test_self_healing_pipeline_repairs_once_and_rechecks(self):
+        valid = "# CREATE TABLE IF NOT EXISTS products\\ndef show_products():\\n    pass"
+        result = run_self_healing_pipeline("invalid source", ["product_catalogue"], "shop_inventory", lambda: valid)
+        self.assertTrue(result["validation"]["valid"])
+        self.assertTrue(result["coverage"]["complete"])
+        self.assertTrue(result["consistency"]["consistent"])
+        self.assertTrue(result["repair"]["attempted"])
+        self.assertEqual(result["repair"]["attempts"], 1)
+
+    def test_self_healing_pipeline_skips_retry_when_complete(self):
+        valid = "# CREATE TABLE IF NOT EXISTS products\\ndef show_products():\\n    pass"
+        calls = []
+        result = run_self_healing_pipeline(valid, ["product_catalogue"], "shop_inventory", lambda: calls.append(1))
+        self.assertTrue(result["complete"])
+        self.assertFalse(result["repair"]["attempted"])
+        self.assertEqual(calls, [])
 
 if __name__ == "__main__":
     unittest.main()

@@ -3,7 +3,7 @@ import json
 import math
 import re
 
-from feature_engine import analyze_blueprint, expand_template_features, validate_feature_coverage, validate_generated_source
+from feature_engine import analyze_blueprint, expand_template_features, validate_feature_coverage, validate_generated_source, run_self_healing_pipeline
 
 SCHOOL_FEATURES = [
     "student_records", "class_management", "attendance_tracking",
@@ -339,7 +339,11 @@ def generate_school_records_code(data):
     generated = TEMPLATE.replace("__APP_TITLE__", repr(name))
     generated = generated.replace("__APP_DESCRIPTION__", repr(description))
     generated = generated.replace("__ENABLED_FEATURES__", repr(selected))
-    coverage = validate_feature_coverage(generated, selected, template_id="school_records")
+    pipeline = run_self_healing_pipeline(
+        generated, selected, "school_records", regenerate_callback=lambda: TEMPLATE.replace("__APP_TITLE__", repr(name)).replace("__APP_DESCRIPTION__", repr(description)).replace("__ENABLED_FEATURES__", repr(selected))
+    )
+    generated = pipeline["source"]
+    coverage = pipeline["coverage"]
     generated += "\n".join([
         "",
         "# IDEA2APK V3 BLUEPRINT VERIFICATION",
@@ -349,6 +353,8 @@ def generate_school_records_code(data):
         "# Actually generated and verified: " + (", ".join(coverage["implemented"]) or "none"),
         "# Missing from generated code: " + (", ".join(coverage["missing"]) or "none"),
         "# Unsupported by selected template: " + (", ".join(plan["unsupported"]) or "none"),
+        "# Repair attempted: " + ("YES" if pipeline["repair"]["attempted"] else "NO"),
+        "# Repair status: " + pipeline["repair"]["status"],
         "# Completion: " + ("COMPLETE" if coverage["complete"] and not plan["unsupported"] else "PARTIAL - review unsupported or missing features"),
         "# Source checks are deterministic fingerprints, not a substitute for device testing.",
         "",
