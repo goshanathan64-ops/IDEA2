@@ -344,6 +344,17 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
         app.db.close()
 
 
+    def test_shop_backup_manager_source_has_selectable_valid_entries_and_confirmation(self):
+        source = generate_app_code({
+            "template_id": "shop_inventory",
+            "name": "Backup UI Check",
+            "description": "Verify backup selection interface",
+        })
+        self.assertIn("Choose a backup to restore", source)
+        self.assertIn("confirm_restore_selected_backup", source)
+        self.assertIn("disabled=not item[\\"valid\\"]", source)
+        self.assertIn("Current data will first be backed up.", source)
+
     def test_shop_restore_selected_backup_restores_that_version_and_preserves_current(self):
         app = self.load_app("shop_inventory", "Selected Backup Restore")
         with tempfile.TemporaryDirectory() as backup_root:

@@ -393,14 +393,64 @@ class GeneratedApp(App):
         if not inventory:
             self.popup_message("Local backups", "No local backups have been created yet.")
             return
-        lines = []
+        body = BoxLayout(orientation="vertical", padding=dp(10), spacing=dp(6))
+        scroll = ScrollView()
+        entries = BoxLayout(orientation="vertical", spacing=dp(6), size_hint_y=None)
+        entries.bind(minimum_height=entries.setter("height"))
         for item in inventory:
-            status = "VALID" if item["valid"] else "INVALID"
+            status = "VALID" if item["valid"] else "INVALID - cannot restore"
             size_kb = item["size_bytes"] / 1024.0
-            lines.append("{} | {:.1f} KB | {}".format(
+            caption = "{} | {:.1f} KB | {}".format(
                 item["filename"], size_kb, status
-            ))
-        self.popup_message("Local backups ({})".format(len(inventory)), "\\n".join(lines))
+            )
+            choice = Button(
+                text=caption, size_hint_y=None, height=dp(58),
+                disabled=not item["valid"]
+            )
+            if item["valid"]:
+                choice.bind(on_release=lambda _button, path=item["path"]:
+                            self.confirm_restore_selected_backup(path, inventory_popup))
+            entries.add_widget(choice)
+        scroll.add_widget(entries)
+        body.add_widget(scroll)
+        close_button = Button(text="CLOSE", size_hint_y=None, height=dp(44))
+        body.add_widget(close_button)
+        inventory_popup = Popup(
+            title="Choose a backup to restore", content=body,
+            size_hint=(0.94, 0.82)
+        )
+        close_button.bind(on_release=inventory_popup.dismiss)
+        inventory_popup.open()
+
+    def confirm_restore_selected_backup(self, backup_path, parent_popup=None):
+        body = BoxLayout(orientation="vertical", padding=dp(12), spacing=dp(8))
+        body.add_widget(Label(
+            text="Restore {}? Current data will first be backed up.".format(
+                os.path.basename(backup_path)
+            ),
+            halign="center"
+        ))
+        buttons = BoxLayout(size_hint_y=None, height=dp(46), spacing=dp(8))
+        confirm = Button(text="RESTORE")
+        cancel = Button(text="CANCEL")
+        buttons.add_widget(confirm)
+        buttons.add_widget(cancel)
+        body.add_widget(buttons)
+        popup = Popup(title="Confirm selected backup", content=body, size_hint=(0.9, 0.42))
+        def do_restore(_button):
+            try:
+                restored = self._restore_backup(backup_path)
+                popup.dismiss()
+                if parent_popup is not None:
+                    parent_popup.dismiss()
+                self.status.text = "Restored selected local backup."
+                self.popup_message("Restore complete", "Restored from: " + os.path.basename(restored))
+                self.show_dashboard()
+            except Exception as error:
+                self.popup_message("Restore failed", str(error))
+        confirm.bind(on_release=do_restore)
+        cancel.bind(on_release=popup.dismiss)
+        popup.open()
 
     def create_backup(self, *_args):
         path = self._create_backup_file()
