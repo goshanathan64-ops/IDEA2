@@ -430,6 +430,11 @@ class GeneratedApp(App):
             entries.add_widget(choice)
         scroll.add_widget(entries)
         body.add_widget(scroll)
+        cleanup_button = Button(
+            text="REMOVE INVALID BACKUPS", size_hint_y=None, height=dp(44)
+        )
+        cleanup_button.bind(on_release=self.confirm_clean_invalid_backups)
+        body.add_widget(cleanup_button)
         close_button = Button(text="CLOSE", size_hint_y=None, height=dp(44))
         body.add_widget(close_button)
         inventory_popup = Popup(
@@ -438,6 +443,61 @@ class GeneratedApp(App):
         )
         close_button.bind(on_release=inventory_popup.dismiss)
         inventory_popup.open()
+
+    def _delete_invalid_backups(self):
+        directory = os.path.realpath(self._backup_directory())
+        removed = 0
+        for item in self._get_backup_inventory():
+            if item["valid"]:
+                continue
+            candidate = os.path.realpath(item["path"])
+            filename = os.path.basename(candidate)
+            if os.path.dirname(candidate) != directory:
+                continue
+            if not (filename.startswith("my_shop_") and filename.endswith(".db")):
+                continue
+            try:
+                os.remove(candidate)
+                removed += 1
+            except OSError:
+                continue
+        return removed
+
+    def confirm_clean_invalid_backups(self, *_args):
+        invalid_count = sum(
+            1 for item in self._get_backup_inventory() if not item["valid"]
+        )
+        if not invalid_count:
+            self.popup_message("Backup cleanup", "There are no invalid backups to remove.")
+            return
+        body = BoxLayout(orientation="vertical", padding=dp(12), spacing=dp(8))
+        body.add_widget(Label(
+            text="Remove {} invalid backup file(s)? Valid backups and current shop data will be kept.".format(
+                invalid_count
+            ),
+            halign="center"
+        ))
+        buttons = BoxLayout(size_hint_y=None, height=dp(46), spacing=dp(8))
+        confirm = Button(text="REMOVE INVALID")
+        cancel = Button(text="CANCEL")
+        buttons.add_widget(confirm)
+        buttons.add_widget(cancel)
+        body.add_widget(buttons)
+        popup = Popup(title="Confirm backup cleanup", content=body, size_hint=(0.9, 0.44))
+        def do_clean(_button):
+            try:
+                removed = self._delete_invalid_backups()
+                popup.dismiss()
+                self.status.text = "Removed {} invalid backup(s).".format(removed)
+                self.popup_message(
+                    "Backup cleanup complete",
+                    "Removed {} invalid backup file(s). Valid backups were kept.".format(removed)
+                )
+            except Exception as error:
+                self.popup_message("Backup cleanup failed", str(error))
+        confirm.bind(on_release=do_clean)
+        cancel.bind(on_release=popup.dismiss)
+        popup.open()
 
     def confirm_restore_selected_backup(self, backup_path, parent_popup=None):
         body = BoxLayout(orientation="vertical", padding=dp(12), spacing=dp(8))

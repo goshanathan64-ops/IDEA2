@@ -360,6 +360,36 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
         self.assertIn('disabled=not item["valid"]', source)
         self.assertIn("Current data will first be backed up.", source)
 
+    def test_shop_cleanup_removes_only_invalid_backups_and_keeps_valid_ones(self):
+        app = self.load_app("shop_inventory", "Safe Backup Cleanup")
+        with tempfile.TemporaryDirectory() as backup_root:
+            app.user_data_dir = backup_root
+            valid_path = app._create_backup_file()
+            invalid_path = os.path.join(
+                backup_root, "backups", "my_shop_corrupt_cleanup.db"
+            )
+            with open(invalid_path, "wb") as handle:
+                handle.write(b"not a valid sqlite backup")
+            removed = app._delete_invalid_backups()
+            self.assertEqual(removed, 1)
+            self.assertTrue(os.path.isfile(valid_path))
+            self.assertFalse(os.path.exists(invalid_path))
+            self.assertEqual(
+                [item["filename"] for item in app._get_backup_inventory()],
+                [os.path.basename(valid_path)],
+            )
+        app.db.close()
+
+    def test_shop_backup_manager_offers_confirmed_invalid_backup_cleanup(self):
+        source = generate_app_code({
+            "template_id": "shop_inventory",
+            "name": "Backup Cleanup UI",
+        })
+        self.assertIn("REMOVE INVALID BACKUPS", source)
+        self.assertIn("confirm_clean_invalid_backups", source)
+        self.assertIn("Valid backups and current shop data will be kept.", source)
+        self.assertIn("def _delete_invalid_backups(self):", source)
+
     def test_shop_restore_selected_backup_restores_that_version_and_preserves_current(self):
         app = self.load_app("shop_inventory", "Selected Backup Restore")
         with tempfile.TemporaryDirectory() as backup_root:
