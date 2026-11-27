@@ -105,3 +105,19 @@ def template_support_report(template_id, requested_features=None):
         "supported": supported,
         "unsupported": unsupported,
     }
+
+
+
+def blueprint_support_report(data):
+    """Summarize the selected template's real feature support for blueprint review."""
+    from feature_engine import analyze_blueprint
+
+    plan = analyze_blueprint(data)
+    template = get_template(plan["template_id"])
+    return {
+        "template_name": template["name"] if template else plan["template_id"],
+        "readiness": "READY" if plan["ready"] else "NOT READY",
+        "requested": list(plan["requested"]),
+        "supported": list(plan["available"]),
+        "unsupported": list(plan["unsupported"]),
+    }
