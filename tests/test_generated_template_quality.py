@@ -1,6 +1,8 @@
 """Runtime smoke tests for generated IDEA2APK V3 app templates."""
+import os
 import sqlite3
 import sys
+import tempfile
 import types
 import unittest
 
