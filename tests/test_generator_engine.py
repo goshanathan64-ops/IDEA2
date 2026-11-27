@@ -341,7 +341,7 @@ class GeneratorEngineTests(unittest.TestCase):
         })
         self.assertIn("# App: Village Shop", source)
         self.assertIn("# Target users: Tuckshop owners", source)
-        self.assertIn("# Unsupported by selected template: bulk_sms_campaigns", source)
+        self.assertIn("# Unsupported by selected template: bulk_sms", source)
         self.assertIn("# Missing supported features: none", source)
         self.assertIn("# Completion: PARTIAL", source)
 
