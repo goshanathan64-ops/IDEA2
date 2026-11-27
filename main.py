@@ -388,15 +388,13 @@ class IDEA2APK(App):
         if not data:
             return
 
-        from feature_engine import analyze_blueprint
-        from template_catalog import get_template
+        from template_catalog import blueprint_support_report
 
-        plan = analyze_blueprint(data)
-        template = get_template(data.get("template_id", "shop_inventory"))
-        template_name = template["name"] if template else data.get("template_id", "Unknown")
-        supported = ", ".join(plan["available"]) or "none requested"
-        unsupported = ", ".join(plan["unsupported"]) or "none"
-        readiness = "READY" if plan["ready"] else "NOT READY"
+        support = blueprint_support_report(data)
+        template_name = support["template_name"]
+        supported = ", ".join(support["supported"]) or "none requested"
+        unsupported = ", ".join(support["unsupported"]) or "none"
+        readiness = support["readiness"]
 
         blueprint = (
             "IDEA2APK APP BLUEPRINT\\n\\n"
