@@ -377,21 +377,27 @@ class GeneratedApp(App):
                 continue
             path = os.path.join(directory, filename)
             try:
-                size = os.path.getsize(path)
+                stat = os.stat(path)
+                size = stat.st_size
+                created_timestamp = stat.st_mtime
                 created_at = datetime.fromtimestamp(
-                    os.path.getmtime(path)
+                    created_timestamp
                 ).strftime("%Y-%m-%d %H:%M")
             except OSError:
                 size = 0
+                created_timestamp = 0
                 created_at = "Date unavailable"
             inventory.append({
                 "path": path,
                 "filename": filename,
                 "created_at": created_at,
+                "created_timestamp": created_timestamp,
                 "valid": self._is_valid_backup_file(path),
                 "size_bytes": size,
             })
-        return sorted(inventory, key=lambda item: item["filename"], reverse=True)
+        return sorted(
+            inventory, key=lambda item: item["created_timestamp"], reverse=True
+        )
 
     def show_backup_inventory(self, *_args):
         inventory = self._get_backup_inventory()

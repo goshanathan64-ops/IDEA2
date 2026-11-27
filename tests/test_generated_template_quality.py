@@ -474,6 +474,23 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
         app.db.close()
 
 
+    def test_shop_backup_inventory_sorts_by_actual_creation_time(self):
+        app = self.load_app("shop_inventory", "Backup Date Ordering")
+        with tempfile.TemporaryDirectory() as backup_root:
+            app.user_data_dir = backup_root
+            older_path = app._create_backup_file()
+            newer_path = app._create_backup_file()
+            os.utime(older_path, (1000, 1000))
+            os.utime(newer_path, (2000, 2000))
+            inventory = app._get_backup_inventory()
+            self.assertEqual(inventory[0]["path"], newer_path)
+            self.assertEqual(inventory[1]["path"], older_path)
+            self.assertGreater(
+                inventory[0]["created_timestamp"],
+                inventory[1]["created_timestamp"],
+            )
+        app.db.close()
+
     def test_shop_backup_inventory_reports_valid_and_invalid_files(self):
         app = self.load_app("shop_inventory", "Backup Inventory")
         with tempfile.TemporaryDirectory() as backup_root:
