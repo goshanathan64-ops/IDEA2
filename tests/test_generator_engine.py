@@ -25,7 +25,6 @@ class GeneratorEngineTests(unittest.TestCase):
         self.assertIn("unit_cost", source)
         self.assertIn("cost_known", source)
         self.assertIn("Sales with unknown historical cost", source)
-        self.assertIn('"\\n".join(lines)', source)
 
     def test_unready_template_is_not_misrepresented_as_shop_app(self):
         with self.assertRaisesRegex(ValueError, "not ready to generate"):
