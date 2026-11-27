@@ -227,6 +227,8 @@ DESCRIPTION_FEATURE_HINTS = {
         ("notes", "customer_notes"), ("follow up", "follow_up_records"),
         ("follow-up", "follow_up_records"), ("search", "customer_search"),
         ("reports", "basic_reports"), ("offline", "local_sqlite_storage"),
+        ("bulk sms", "bulk_sms_campaigns"), ("sms campaigns", "bulk_sms_campaigns"),
+        ("whatsapp automation", "whatsapp_automation"),
     ],
 }
 
