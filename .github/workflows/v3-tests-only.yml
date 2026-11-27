@@ -1,0 +1,38 @@
+name: IDEA2APK V3 Tests Only
+
+on:
+  push:
+    branches:
+      - feature/self-generating-engine-v3
+    paths:
+      - "feature_engine.py"
+      - "generator_engine.py"
+      - "tests/**"
+      - ".github/workflows/v3-tests-only.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: idea2apk-v3-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Python and database tests (no APK build)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout V3 feature branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Compile V3 generator and tests
+        run: python -m compileall -q feature_engine.py generator_engine.py tests
+
+      - name: Run V3 unit and database migration tests
+        run: python -m unittest discover -s tests -v
