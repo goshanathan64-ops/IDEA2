@@ -6,6 +6,8 @@ The generated app uses Kivy and Python's standard-library sqlite3 module.
 import json
 import re
 
+from feature_engine import analyze_blueprint, validate_generated_source
+
 
 def generate_app_code(data):
     name = (data.get("name") or "My Shop").strip()
@@ -259,8 +261,29 @@ class GeneratedApp(App):
 if __name__ == "__main__":
     GeneratedApp().run()
 '''
-    return (
+    generated = (
         template
         .replace("__APP_TITLE__", json.dumps(safe_title))
         .replace("__APP_DESCRIPTION__", json.dumps(description))
     )
+
+    # Keep the analysis visible in exported source so users can see which
+    # requested features the current offline template does not yet implement.
+    plan = analyze_blueprint(data)
+    report = [
+        "",
+        "# IDEA2APK V3 BLUEPRINT ANALYSIS",
+        "# Supported by this template: " + (
+            ", ".join(plan["supported"]) or "none"
+        ),
+        "# Not yet generated: " + (
+            ", ".join(plan["unsupported"]) or "none"
+        ),
+        "# This report is informational; unsupported features are not implemented.",
+        "",
+    ]
+    generated += "\\n".join(report)
+    validation = validate_generated_source(generated)
+    if not validation["valid"]:
+        raise ValueError("; ".join(validation["errors"]))
+    return generated
