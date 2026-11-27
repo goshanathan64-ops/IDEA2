@@ -810,7 +810,7 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
                 self.assertEqual(handle.read(), original_backup_bytes)
             self.assertEqual(
                 sorted(os.listdir(directory)),
-                ["my_shop_rejected.db", os.path.basename(valid_backup)],
+                sorted(["my_shop_rejected.db", os.path.basename(valid_backup)]),
             )
         app.db.close()
 
