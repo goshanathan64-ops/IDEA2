@@ -10,6 +10,10 @@ from feature_engine import analyze_blueprint, validate_generated_source
 
 
 def generate_app_code(data):
+    template_id = str(data.get("template_id") or "shop_inventory")
+    if template_id != "shop_inventory":
+        raise ValueError("The selected template is not ready to generate apps yet: " + template_id)
+
     name = (data.get("name") or "My Shop").strip()
     description = (data.get("description") or "Shop management application").strip()
     safe_title = re.sub(r"[^A-Za-z0-9 _-]", "", name) or "My Shop"
@@ -282,7 +286,7 @@ if __name__ == "__main__":
         "# This report is informational; unsupported features are not implemented.",
         "",
     ]
-    generated += "\\n".join(report)
+    generated += "\n".join(report)
     validation = validate_generated_source(generated)
     if not validation["valid"]:
         raise ValueError("; ".join(validation["errors"]))
