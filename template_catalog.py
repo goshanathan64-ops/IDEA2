@@ -32,10 +32,17 @@ TEMPLATES = [
         "id": "expense_tracker",
         "name": "Expense Tracker",
         "category": "finance",
-        "status": "planned",
-        "description": "Income, expenses, budgets and summaries.",
-        "supported_features": [],
-        "unsupported_features": [],
+        "status": "ready",
+        "description": "Offline income and expense records, categories, USD/ZiG totals, transaction history and balance summaries.",
+        "supported_features": [
+            "income_records", "expense_records", "category_tracking",
+            "currency_support", "basic_reports", "local_sqlite_storage",
+            "transaction_history"
+        ],
+        "unsupported_features": [
+            "budgets", "recurring_transactions", "cloud_sync",
+            "bank_connections", "multi_user_login"
+        ],
     },
     {
         "id": "booking_appointments",
