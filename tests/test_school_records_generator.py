@@ -109,7 +109,7 @@ class SchoolRecordsGeneratorTests(unittest.TestCase):
     def test_blueprint_reports_supported_and_unsupported_school_features(self):
         app, source = self.make_app("students, classes, attendance, exam results, timetable generation")
         self.assertIn('"student_records"', source)
-        self.assertIn('"class_management"', source)
+        self.assertIn("class_management", source)
         self.assertIn('"attendance_tracking"', source)
         self.assertIn('"results_records"', source)
         self.assertIn("# Unsupported by selected template: timetable_generation", source)
