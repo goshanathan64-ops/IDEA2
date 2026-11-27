@@ -372,6 +372,25 @@ class GeneratedApp(App):
             "For protection if the phone is lost, copy backups outside the app when an export option is added."
         )
 
+    def _is_valid_backup_file(self, path):
+        connection = None
+        try:
+            connection = sqlite3.connect(path)
+            result = connection.execute("PRAGMA quick_check").fetchone()
+            if not result or result[0] != "ok":
+                return False
+            tables = {
+                row[0] for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+            return "products" in tables
+        except sqlite3.DatabaseError:
+            return False
+        finally:
+            if connection is not None:
+                connection.close()
+
     def _restore_latest_backup(self):
         directory = self._backup_directory()
         backups = [
@@ -379,9 +398,10 @@ class GeneratedApp(App):
             for filename in os.listdir(directory)
             if filename.startswith("my_shop_") and filename.endswith(".db")
         ]
-        if not backups:
-            raise ValueError("No backup is available on this device.")
-        latest = max(backups, key=os.path.getmtime)
+        valid_backups = [path for path in backups if self._is_valid_backup_file(path)]
+        if not valid_backups:
+            raise ValueError("No valid backup is available on this device.")
+        latest = max(valid_backups, key=os.path.basename)
         # Preserve the current database before replacing it.
         self._create_backup_file()
         source = sqlite3.connect(latest)

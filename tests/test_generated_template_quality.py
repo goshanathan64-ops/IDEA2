@@ -248,6 +248,46 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
             self.assertIn("Newer stock", preserved)
         app.db.close()
 
+    def test_shop_restore_skips_corrupted_newest_backup(self):
+        app = self.load_app("shop_inventory", "Corrupt Backup Test")
+        with tempfile.TemporaryDirectory() as backup_root:
+            app.user_data_dir = backup_root
+            app.db.execute(
+                "INSERT INTO products(name, price, quantity, cost_price, selling_price, currency) "
+                "VALUES(?,?,?,?,?,?)",
+                ("Safe saved stock", 15.0, 6, 9.0, 15.0, "USD"),
+            )
+            app.db.commit()
+            valid_path = app._create_backup_file()
+
+            corrupt_path = os.path.join(
+                backup_root, "backups", "my_shop_99999999_999999_999999.db"
+            )
+            with open(corrupt_path, "wb") as handle:
+                handle.write(b"not a sqlite database")
+
+            restored_path = app._restore_latest_backup()
+            self.assertEqual(restored_path, valid_path)
+            names = [
+                row[0] for row in app.db.execute("SELECT name FROM products ORDER BY name")
+            ]
+            self.assertEqual(names, ["Safe saved stock"])
+        app.db.close()
+
+    def test_shop_restore_rejects_when_only_backup_is_corrupted(self):
+        app = self.load_app("shop_inventory", "Only Corrupt Backup")
+        with tempfile.TemporaryDirectory() as backup_root:
+            app.user_data_dir = backup_root
+            directory = os.path.join(backup_root, "backups")
+            os.makedirs(directory)
+            corrupt_path = os.path.join(directory, "my_shop_corrupt.db")
+            with open(corrupt_path, "wb") as handle:
+                handle.write(b"broken database")
+            with self.assertRaisesRegex(ValueError, "No valid backup"):
+                app._restore_latest_backup()
+        app.db.close()
+
+
     def test_shop_restore_without_backup_returns_clear_error(self):
         app = self.load_app("shop_inventory", "Empty Backup Test")
         with tempfile.TemporaryDirectory() as backup_root:
