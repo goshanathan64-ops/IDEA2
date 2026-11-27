@@ -156,7 +156,7 @@ class GeneratedApp(App):
         buttons.add_widget(save)
         buttons.add_widget(cancel)
         body.add_widget(buttons)
-        popup = Popup(title=title, content=body, size_hint=(0.92, 0.65))
+        popup = Popup(title=title, content=body, size_hint=(0.92, 0.88))
         def do_save(_button):
             values = {key: field.text.strip() for key, field in inputs.items()}
             try:
@@ -201,12 +201,18 @@ class GeneratedApp(App):
         ], save)
 
     def show_products(self, *_args):
-        rows = self.db.execute("SELECT name, price, quantity FROM products ORDER BY name").fetchall()
+        rows = self.db.execute(
+            "SELECT name, cost_price, selling_price, currency, quantity, low_stock_threshold "
+            "FROM products ORDER BY name"
+        ).fetchall()
         if not rows:
             text = "No products yet. Use Add Product to create your first item."
         else:
-            text = "PRODUCT                 PRICE       STOCK\n"
-            text += "\n".join("{}                 {:.2f}       {}".format(*row) for row in rows)
+            text = "PRODUCT | COST | SELL | CURRENCY | STOCK | ALERT\\n"
+            text += "\\n".join(
+                "{} | {:.2f} | {:.2f} | {} | {} | {}".format(*row)
+                for row in rows
+            )
         self.popup_message("Products and Inventory", text)
 
     def record_sale(self, *_args):
