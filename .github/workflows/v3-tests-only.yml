@@ -9,7 +9,8 @@ on:
       - "generator_engine.py"
       - "expense_tracker_generator.py"
       - "school_records_generator.py"
-      - "booking_appointments_generator.py task_manager_generator.py"
+      - "booking_appointments_generator.py"
+      - "task_manager_generator.py"
       - "main.py"
       - "template_catalog.py"
       - ".github/workflows/build-idea2apk.yml"
@@ -38,7 +39,7 @@ jobs:
           python-version: "3.10"
 
       - name: Compile V3 generator and tests
-        run: python -m compileall -q main.py template_catalog.py feature_engine.py generator_engine.py expense_tracker_generator.py school_records_generator.py booking_appointments_generator.py tests
+        run: python -m compileall -q main.py template_catalog.py feature_engine.py generator_engine.py expense_tracker_generator.py school_records_generator.py booking_appointments_generator.py task_manager_generator.py tests
 
       - name: Run V3 unit and database migration tests
         run: python -m unittest discover -s tests -v
