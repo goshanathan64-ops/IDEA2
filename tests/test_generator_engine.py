@@ -318,6 +318,29 @@ class GeneratorEngineTests(unittest.TestCase):
         self.assertIn('self.dashboard_summary.text = summary', source)
         self.assertIn('Low-stock items:', source)
 
+    def test_generated_menu_is_filtered_by_requested_blueprint_features(self):
+        source = generate_app_code({
+            "template_id": "shop_inventory",
+            "name": "Sales Only",
+            "description": "Simple sales tool",
+            "features": "record sales",
+        })
+        self.assertIn('ENABLED_FEATURES = ["product_catalogue", "stock_tracking", "record_sales"]', source)
+        self.assertIn('if feature_enabled(feature)', source)
+        self.assertIn('# Selected for app UI: product_catalogue, stock_tracking, record_sales', source)
+        self.assertIn('("record_sales", "Record Sale", self.record_sale)', source)
+        self.assertIn('("expense_records", "Record Expense", self.add_expense)', source)
+
+    def test_generated_menu_uses_all_features_when_blueprint_is_empty(self):
+        source = generate_app_code({
+            "template_id": "shop_inventory",
+            "name": "Default Shop",
+            "description": "Shop app",
+            "features": "",
+        })
+        self.assertIn('"profit_loss_reports"', source)
+        self.assertIn('"local_sqlite_storage"', source)
+
     def test_unready_template_is_not_misrepresented_as_shop_app(self):
         with self.assertRaisesRegex(ValueError, "not ready to generate"):
             generate_app_code({
