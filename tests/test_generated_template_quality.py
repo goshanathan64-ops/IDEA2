@@ -578,5 +578,22 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
         app.db.close()
 
 
+    def test_shop_restore_rejects_backup_symlink(self):
+        app = self.load_app("shop_inventory", "Reject Backup Symlink")
+        with tempfile.TemporaryDirectory() as backup_root:
+            app.user_data_dir = backup_root
+            directory = os.path.join(backup_root, "backups")
+            os.makedirs(directory)
+            real_backup = app._create_backup_file()
+            link_path = os.path.join(directory, "my_shop_link.db")
+            try:
+                os.symlink(real_backup, link_path)
+            except (OSError, NotImplementedError):
+                self.skipTest("Symbolic links are not supported in this environment.")
+            with self.assertRaisesRegex(ValueError, "Symbolic-link backups"):
+                app._restore_backup(link_path)
+            self.assertTrue(app._is_valid_backup_file(real_backup))
+        app.db.close()
+
 if __name__ == "__main__":
     unittest.main()

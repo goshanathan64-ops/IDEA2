@@ -591,7 +591,13 @@ class GeneratedApp(App):
 
     def _restore_backup(self, backup_path):
         directory = os.path.realpath(self._backup_directory())
-        candidate = os.path.realpath(str(backup_path or ""))
+        supplied_path = os.path.abspath(str(backup_path or ""))
+        # Reject symbolic links explicitly, even when their targets remain
+        # inside the backup folder. Inventory never offers symlinks, and the
+        # restore API must enforce the same rule for direct callers.
+        if os.path.islink(supplied_path):
+            raise ValueError("Symbolic-link backups cannot be restored.")
+        candidate = os.path.realpath(supplied_path)
         if os.path.dirname(candidate) != directory:
             raise ValueError("Choose a backup from this app's local backup folder.")
         filename = os.path.basename(candidate)
