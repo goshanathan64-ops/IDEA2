@@ -743,9 +743,10 @@ if __name__ == "__main__":
     plan = analyze_blueprint(data)
     requested_features = plan["requested"]
     if data.get("feature_selection_locked") and not requested_features:
-        selected_features = []
-    else:
-        selected_features = select_generated_features(requested_features)
+        raise ValueError("Select at least one feature before generating the app.")
+    # Only features supported by this template are candidates for code generation.
+    # Unsupported requests are reported separately, not mislabeled as missing code.
+    selected_features = select_generated_features(plan["available"])
 
     generated = (
         template
@@ -766,26 +767,34 @@ if __name__ == "__main__":
         ),
     )
     generated = repair["source"]
-    coverage = validate_feature_coverage(generated, plan["requested"])
+    coverage = validate_feature_coverage(generated, selected_features)
     validation = validate_generated_source(generated)
     if not validation["valid"]:
         raise ValueError("; ".join(validation["errors"]))
 
+    complete = coverage["complete"] and not plan["unsupported"] and validation["valid"]
     report = [
         "",
         "# IDEA2APK V3 BLUEPRINT VERIFICATION",
-        "# Requested: " + (", ".join(plan["requested"]) or "none"),
-        "# Selected for app UI: " + (", ".join(selected_features) or "none"),
+        "# App: " + str(data.get("name") or "Unnamed app"),
+        "# Target users: " + str(data.get("target") or "Not specified"),
+        "# Template: " + plan["template_id"],
+        "# User requested: " + (", ".join(plan["explicit"]) or "none"),
+        "# Inferred from description: " + (", ".join(plan["inferred"]) or "none"),
+        "# Total requested: " + (", ".join(plan["requested"]) or "none"),
+        "# Supported by template: " + (", ".join(plan["available"]) or "none"),
+        "# Selected for app UI (including dependencies): " + (", ".join(selected_features) or "none"),
         "# Actually generated and verified: " + (", ".join(coverage["implemented"]) or "none"),
-        "# Missing from generated code: " + (", ".join(coverage["missing"]) or "none"),
+        "# Missing supported features: " + (", ".join(coverage["missing"]) or "none"),
         "# Unsupported by selected template: " + (", ".join(plan["unsupported"]) or "none"),
+        "# Python syntax validation: " + ("PASS" if validation["valid"] else "FAIL"),
         "# Automatic repair attempted: " + ("YES" if repair["attempted"] else "NO"),
         "# Automatic repair changed source: " + ("YES" if repair["repaired"] else "NO"),
         "# Repair attempts: " + str(repair["attempts"]),
         "# Unresolved supported features: " + (", ".join(repair["unresolved"]) or "none"),
-        "# Completion: " + ("COMPLETE" if coverage["complete"] else "PARTIAL - review missing features"),
+        "# Completion: " + ("COMPLETE" if complete else "PARTIAL - review unsupported or missing features"),
         "# Source checks are deterministic fingerprints, not a substitute for device testing.",
-        "# App menu actions are filtered to the selected features; shared database code remains in the template.",
+        "# App menu actions are filtered to selected features; shared database code remains in the template.",
         "",
     ]
     generated += "\n".join(report)
