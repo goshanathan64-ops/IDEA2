@@ -615,6 +615,20 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
 
 
 
+    def test_shop_restore_rejects_empty_backup_file(self):
+        app = self.load_app("shop_inventory", "Reject Empty Backup")
+        with tempfile.TemporaryDirectory() as backup_root:
+            app.user_data_dir = backup_root
+            directory = os.path.join(backup_root, "backups")
+            os.makedirs(directory)
+            empty_path = os.path.join(directory, "my_shop_empty.db")
+            with open(empty_path, "wb"):
+                pass
+            with self.assertRaisesRegex(ValueError, "backup is empty"):
+                app._restore_backup(empty_path)
+            self.assertEqual(os.path.getsize(empty_path), 0)
+        app.db.close()
+
     def test_shop_restore_rejects_unreadable_backup_file(self):
         app = self.load_app("shop_inventory", "Reject Unreadable Backup")
         with tempfile.TemporaryDirectory() as backup_root:
