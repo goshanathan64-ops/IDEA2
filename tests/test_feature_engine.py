@@ -216,6 +216,32 @@ class FeatureEngineTests(unittest.TestCase):
         self.assertEqual(result["unresolved"], ["product_catalogue"])
         self.assertEqual(len(calls), 1)
 
+    def test_repair_rejects_candidate_that_drops_verified_features(self):
+        original = "# CREATE TABLE IF NOT EXISTS products\\ndef show_products():\\n    pass"
+        candidate = "# CREATE TABLE IF NOT EXISTS products"
+        result = repair_generated_source(original, ["product_catalogue", "stock_tracking"], lambda: candidate)
+        self.assertFalse(result["repaired"])
+        self.assertEqual(result["source"], original)
+        self.assertEqual(result["status"], "incomplete_features")
+        self.assertTrue(any("removed verified features" in item for item in result["errors"]))
+
+    def test_repair_reports_regeneration_exception(self):
+        def broken_regenerator():
+            raise RuntimeError("template unavailable")
+        result = repair_generated_source("invalid source", ["product_catalogue"], broken_regenerator)
+        self.assertTrue(result["attempted"])
+        self.assertEqual(result["status"], "syntax_error")
+        self.assertIn("template unavailable", result["diagnostics"]["repair_errors"][0])
+
+    def test_repair_accepts_syntax_fix_without_feature_regression(self):
+        result = repair_generated_source(
+            "def broken(:", ["product_catalogue"],
+            lambda: "# CREATE TABLE IF NOT EXISTS products\\ndef show_products():\\n    pass",
+        )
+        self.assertTrue(result["repaired"])
+        self.assertEqual(result["status"], "repaired")
+        self.assertEqual(result["diagnostics"]["syntax_errors"], [])
+
     def test_repair_does_not_call_regenerator_when_source_is_complete(self):
         calls = []
         source = "# CREATE TABLE IF NOT EXISTS products\ndef show_products():\n    pass"
