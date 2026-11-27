@@ -740,16 +740,21 @@ class GeneratedApp(App):
 if __name__ == "__main__":
     GeneratedApp().run()
 '''
+    plan = analyze_blueprint(data)
+    requested_features = plan["requested"]
+    if data.get("feature_selection_locked") and not requested_features:
+        selected_features = []
+    else:
+        selected_features = select_generated_features(requested_features)
+
     generated = (
         template
         .replace("__APP_TITLE__", json.dumps(safe_title))
         .replace("__APP_DESCRIPTION__", json.dumps(description))
-        .replace("__ENABLED_FEATURES__", json.dumps(select_generated_features(analyze_blueprint(data)["requested"])))
+        .replace("__ENABLED_FEATURES__", json.dumps(selected_features))
     )
 
     # Retry generation once if supported features are missing or source is invalid.
-    plan = analyze_blueprint(data)
-    selected_features = select_generated_features(plan["requested"])
     repair = repair_generated_source(
         generated,
         selected_features,
