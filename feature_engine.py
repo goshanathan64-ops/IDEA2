@@ -3,6 +3,16 @@ import ast
 import re
 
 ALIASES = {
+    "customer profiles": "customer_profiles", "customer profile": "customer_profiles",
+    "customer records": "customer_profiles", "client profiles": "customer_profiles",
+    "contact details": "contact_details", "phone numbers": "contact_details",
+    "phone and email": "contact_details", "customer contact information": "contact_details",
+    "customer notes": "customer_notes", "notes for customers": "customer_notes",
+    "follow ups": "follow_up_records", "follow-ups": "follow_up_records",
+    "follow up records": "follow_up_records", "customer follow ups": "follow_up_records",
+    "follow up tracking": "follow_up_tracking", "follow-up tracking": "follow_up_tracking",
+    "follow up reminders": "follow_up_tracking", "customer follow up history": "follow_up_tracking",
+    "search customers": "customer_search", "customer search": "customer_search",
     "tasks": "task_records", "task": "task_records", "task records": "task_records",
     "create tasks": "task_records", "add tasks": "task_records",
     "deadlines": "due_dates", "due date": "due_dates", "due dates": "due_dates", "task deadlines": "due_dates",
@@ -78,6 +88,17 @@ SCHOOL_RECORDS_SOURCE_CHECKS = {
     "local_sqlite_storage": ("sqlite3.connect", "self.user_data_dir"),
 }
 
+CUSTOMER_MANAGER_SOURCE_CHECKS = {
+    "customer_profiles": ("CREATE TABLE IF NOT EXISTS customers", "def _save_customer", "def _get_customers"),
+    "contact_details": ("phone TEXT DEFAULT ''", "email TEXT DEFAULT ''", "address TEXT DEFAULT ''"),
+    "customer_notes": ("notes TEXT DEFAULT ''", "notes LIKE ?"),
+    "follow_up_records": ("CREATE TABLE IF NOT EXISTS followups", "def _save_followup", "INSERT INTO followups"),
+    "follow_up_tracking": ("def _get_followups", "def _complete_followup", "followup_date<=?"),
+    "customer_search": ("def _get_customers", "phone LIKE ?", "email LIKE ?"),
+    "basic_reports": ("def _get_summary", "def show_summary"),
+    "local_sqlite_storage": ("sqlite3.connect", "self.user_data_dir"),
+}
+
 TASK_MANAGER_SOURCE_CHECKS = {
     "task_records": ("CREATE TABLE IF NOT EXISTS tasks", "def _save_task", "INSERT INTO tasks"),
     "due_dates": ("due_date TEXT DEFAULT ''", "def _get_due_tasks", "datetime.strptime(due_date, \"%Y-%m-%d\")"),
@@ -105,6 +126,7 @@ TEMPLATE_FEATURE_CHECKS = {
     "school_records": SCHOOL_RECORDS_SOURCE_CHECKS,
     "booking_appointments": BOOKING_APPOINTMENTS_SOURCE_CHECKS,
     "task_manager": TASK_MANAGER_SOURCE_CHECKS,
+    "customer_manager": CUSTOMER_MANAGER_SOURCE_CHECKS,
 }
 
 
