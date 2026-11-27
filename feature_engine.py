@@ -253,13 +253,14 @@ def analyze_blueprint(data):
         if feature not in explicit:
             explicit.append(feature)
     template_id = str(data.get("template_id") or "shop_inventory")
-    inferred = [
+    selection_locked = bool(data.get("feature_selection_locked"))
+    inferred = [] if selection_locked else [
         feature for feature in infer_features_from_description(
             data.get("description", ""), template_id
         )
         if feature not in explicit
     ]
-    requested = explicit + inferred
+    requested = explicit if selection_locked else explicit + inferred
     available = set(TEMPLATE_FEATURE_CHECKS.get(template_id, {}))
     supported = [item for item in requested if item in available]
     unsupported = [item for item in requested if item not in available]
@@ -332,6 +333,9 @@ def apply_blueprint_feature_selection(data, selected_features):
         if feature and feature not in selected:
             selected.append(feature)
     data["features"] = ", ".join(selected)
+    # Once approved, the checked list is authoritative. Do not re-add
+    # description-inferred features that the user deliberately unticked.
+    data["feature_selection_locked"] = True
     return data
 
 
