@@ -288,11 +288,7 @@ def generate_booking_code(data):
     name = str(data.get("name") or "My Booking Manager").strip() or "My Booking Manager"
     description = str(data.get("description") or "Offline booking and appointment manager").strip()
     requested = plan["requested"]
-    selected = [feature for feature in BOOKING_FEATURES if feature in requested]
-    if "customer_details" in selected and "booking_records" not in selected:
-        selected.append("booking_records")
-    if not requested:
-        selected = list(BOOKING_FEATURES)
+    selected = expand_template_features("booking_appointments", requested, BOOKING_FEATURES)
 
     generated = TEMPLATE.replace("__APP_TITLE__", repr(name))
     generated = generated.replace("__APP_DESCRIPTION__", repr(description))

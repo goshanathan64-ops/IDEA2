@@ -344,6 +344,56 @@ FEATURE_DEPENDENCIES = {
     "record_sales": ("product_catalogue", "stock_tracking"),
 }
 
+TEMPLATE_FEATURE_DEPENDENCIES = {
+    "expense_tracker": {
+        "category_tracking": ("income_records", "expense_records"),
+    },
+    "school_records": {
+        "class_management": ("student_records",),
+        "attendance_tracking": ("student_records",),
+        "results_records": ("student_records",),
+    },
+    "booking_appointments": {
+        "appointment_scheduling": ("booking_records",),
+        "customer_details": ("booking_records",),
+        "booking_status": ("booking_records",),
+        "booking_history": ("booking_records",),
+    },
+    "task_manager": {
+        "due_dates": ("task_records",),
+        "priority_levels": ("task_records",),
+        "completion_tracking": ("task_records",),
+        "task_categories": ("task_records",),
+        "task_search": ("task_records",),
+    },
+    "customer_manager": {
+        "contact_details": ("customer_profiles",),
+        "customer_notes": ("customer_profiles",),
+        "follow_up_records": ("customer_profiles",),
+        "follow_up_tracking": ("customer_profiles",),
+        "customer_search": ("customer_profiles",),
+    },
+}
+
+
+def expand_template_features(template_id, requested_features, available_features):
+    """Add required parent workflows while preserving template feature order."""
+    available = list(available_features)
+    requested = list(dict.fromkeys(requested_features or []))
+    if not requested:
+        return available
+    selected = [feature for feature in requested if feature in available]
+    dependencies = TEMPLATE_FEATURE_DEPENDENCIES.get(str(template_id), {})
+    changed = True
+    while changed:
+        changed = False
+        for feature in list(selected):
+            for dependency in dependencies.get(feature, ()):
+                if dependency in available and dependency not in selected:
+                    selected.append(dependency)
+                    changed = True
+    return [feature for feature in available if feature in selected]
+
 
 def select_generated_features(requested_features):
     """Expand required dependencies and default to the complete ready template."""

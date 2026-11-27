@@ -243,9 +243,7 @@ def generate_expense_tracker_code(data):
     name = str(data.get("name") or "My Expense Tracker").strip() or "My Expense Tracker"
     description = str(data.get("description") or "Offline income and expense tracker").strip()
     requested = plan["requested"]
-    selected = [feature for feature in EXPENSE_FEATURES if feature in requested]
-    if not requested:
-        selected = list(EXPENSE_FEATURES)
+    selected = expand_template_features("expense_tracker", requested, EXPENSE_FEATURES)
 
     generated = TEMPLATE.replace("__APP_TITLE__", repr(name))
     generated = generated.replace("__APP_DESCRIPTION__", repr(description))

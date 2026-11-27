@@ -318,9 +318,7 @@ def generate_customer_manager_code(data):
     name = str(data.get("name") or "My Customer Manager").strip() or "My Customer Manager"
     description = str(data.get("description") or "Offline customer and follow-up manager").strip()
     requested = plan["requested"]
-    selected = [feature for feature in CUSTOMER_FEATURES if feature in requested]
-    if not requested:
-        selected = list(CUSTOMER_FEATURES)
+    selected = expand_template_features("customer_manager", requested, CUSTOMER_FEATURES)
     generated = TEMPLATE.replace("__APP_TITLE__", repr(name))
     generated = generated.replace("__APP_DESCRIPTION__", repr(description))
     generated = generated.replace("__ENABLED_FEATURES__", repr(selected))

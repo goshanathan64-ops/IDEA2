@@ -334,9 +334,7 @@ def generate_school_records_code(data):
     name = str(data.get("name") or "My School Records").strip() or "My School Records"
     description = str(data.get("description") or "Offline school records manager").strip()
     requested = plan["requested"]
-    selected = [feature for feature in SCHOOL_FEATURES if feature in requested]
-    if not requested:
-        selected = list(SCHOOL_FEATURES)
+    selected = expand_template_features("school_records", requested, SCHOOL_FEATURES)
 
     generated = TEMPLATE.replace("__APP_TITLE__", repr(name))
     generated = generated.replace("__APP_DESCRIPTION__", repr(description))

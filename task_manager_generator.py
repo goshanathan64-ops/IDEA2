@@ -258,9 +258,7 @@ def generate_task_manager_code(data):
     name = str(data.get("name") or "My Task Manager").strip() or "My Task Manager"
     description = str(data.get("description") or "Offline task and deadline manager").strip()
     requested = plan["requested"]
-    selected = [feature for feature in TASK_FEATURES if feature in requested]
-    if not requested:
-        selected = list(TASK_FEATURES)
+    selected = expand_template_features("task_manager", requested, TASK_FEATURES)
     generated = TEMPLATE.replace("__APP_TITLE__", repr(name))
     generated = generated.replace("__APP_DESCRIPTION__", repr(description))
     generated = generated.replace("__ENABLED_FEATURES__", repr(selected))
