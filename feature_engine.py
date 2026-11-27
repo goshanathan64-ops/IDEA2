@@ -186,28 +186,96 @@ def canonical_feature(value):
     return ALIASES.get(compact, text.replace(" ", "_"))
 
 
+DESCRIPTION_FEATURE_HINTS = {
+    "shop_inventory": [
+        ("products", "product_catalogue"), ("inventory", "stock_tracking"),
+        ("stock", "stock_tracking"), ("sales", "record_sales"),
+        ("customers", "customer_records"), ("expenses", "expense_records"),
+        ("reports", "basic_reports"), ("offline", "local_sqlite_storage"),
+        ("usd and zig", "currency_support"), ("usd/zig", "currency_support"),
+        ("cost price", "cost_price_tracking"), ("profit and loss", "profit_loss_reports"),
+    ],
+    "school_records": [
+        ("students", "student_records"), ("admission numbers", "student_records"),
+        ("classes", "class_management"), ("attendance", "attendance_tracking"),
+        ("marks", "results_records"), ("exam results", "results_records"),
+        ("school reports", "basic_reports"), ("offline", "local_sqlite_storage"),
+    ],
+    "expense_tracker": [
+        ("income", "income_records"), ("expenses", "expense_records"),
+        ("categories", "category_tracking"), ("transactions", "transaction_history"),
+        ("transaction history", "transaction_history"), ("usd", "currency_support"),
+        ("zig", "currency_support"), ("balance", "basic_reports"),
+        ("reports", "basic_reports"), ("offline", "local_sqlite_storage"),
+    ],
+    "booking_appointments": [
+        ("bookings", "booking_records"), ("appointments", "appointment_scheduling"),
+        ("appointment date", "appointment_scheduling"), ("customer details", "customer_details"),
+        ("booking status", "booking_status"), ("booking history", "booking_history"),
+        ("reports", "basic_reports"), ("offline", "local_sqlite_storage"),
+    ],
+    "task_manager": [
+        ("tasks", "task_records"), ("deadlines", "due_dates"),
+        ("due dates", "due_dates"), ("priority", "priority_levels"),
+        ("completed", "completion_tracking"), ("categories", "task_categories"),
+        ("search", "task_search"), ("reports", "basic_reports"),
+        ("offline", "local_sqlite_storage"),
+    ],
+    "customer_manager": [
+        ("customers", "customer_profiles"), ("phone", "contact_details"),
+        ("email", "contact_details"), ("address", "contact_details"),
+        ("notes", "customer_notes"), ("follow up", "follow_up_records"),
+        ("follow-up", "follow_up_records"), ("search", "customer_search"),
+        ("reports", "basic_reports"), ("offline", "local_sqlite_storage"),
+    ],
+}
+
+
+def infer_features_from_description(description, template_id):
+    """Conservatively infer only known template features from explicit keywords."""
+    text = re.sub(r"\\s+", " ", str(description or "").lower())
+    inferred = []
+    for phrase, feature in DESCRIPTION_FEATURE_HINTS.get(template_id, []):
+        pattern = r"(?<![a-z0-9])" + re.escape(phrase) + r"(?![a-z0-9])"
+        if re.search(pattern, text) and feature not in inferred:
+            inferred.append(feature)
+    return inferred
+
+
 def analyze_blueprint(data):
-    """Return requested features and template candidates, not completion claims."""
+    """Return explicit and description-inferred features without hiding unsupported requests."""
     data = data if isinstance(data, dict) else {}
-    requested = []
+    explicit = []
     for item in split_requested_features(data.get("features", [])):
         feature = canonical_feature(item)
-        if feature not in requested:
-            requested.append(feature)
+        if feature not in explicit:
+            explicit.append(feature)
     template_id = str(data.get("template_id") or "shop_inventory")
+    inferred = [
+        feature for feature in infer_features_from_description(
+            data.get("description", ""), template_id
+        )
+        if feature not in explicit
+    ]
+    requested = explicit + inferred
     available = set(TEMPLATE_FEATURE_CHECKS.get(template_id, {}))
     supported = [item for item in requested if item in available]
     unsupported = [item for item in requested if item not in available]
     return {
         "template_id": template_id,
         "requested": requested,
+        "explicit": explicit,
+        "inferred": inferred,
         "available": supported,
         "unsupported": unsupported,
         "feature_status": [
             {
                 "feature": item,
+                "source": "description" if item in inferred else "features",
                 "status": "available" if item in available else "unsupported",
                 "reason": (
+                    "Recognized for the selected template; verify it matches your intention."
+                    if item in inferred else
                     "This feature has a generator check for the selected template."
                     if item in available else
                     "This feature is not currently implemented for the selected template."
