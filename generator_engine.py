@@ -360,6 +360,12 @@ class GeneratedApp(App):
             self.db.backup(destination)
         finally:
             destination.close()
+        if not self._is_valid_backup_file(path):
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+            raise sqlite3.DatabaseError("Backup verification failed; the incomplete backup was discarded.")
         return path
 
     def create_backup(self, *_args):

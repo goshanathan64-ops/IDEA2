@@ -248,6 +248,33 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
             self.assertIn("Newer stock", preserved)
         app.db.close()
 
+    def test_shop_backup_is_verified_after_creation(self):
+        app = self.load_app("shop_inventory", "Verified Backup Test")
+        with tempfile.TemporaryDirectory() as backup_root:
+            app.user_data_dir = backup_root
+            app.db.execute(
+                "INSERT INTO products(name, price, quantity, cost_price, selling_price, currency) "
+                "VALUES(?,?,?,?,?,?)",
+                ("Verified item", 9.0, 5, 6.0, 9.0, "USD"),
+            )
+            app.db.commit()
+            backup_path = app._create_backup_file()
+            self.assertTrue(os.path.isfile(backup_path))
+            self.assertTrue(app._is_valid_backup_file(backup_path))
+            backup_db = sqlite3.connect(backup_path)
+            try:
+                self.assertEqual(
+                    backup_db.execute("PRAGMA quick_check").fetchone()[0], "ok"
+                )
+                self.assertEqual(
+                    backup_db.execute("SELECT name FROM products").fetchone()[0],
+                    "Verified item",
+                )
+            finally:
+                backup_db.close()
+        app.db.close()
+
+
     def test_shop_restore_skips_corrupted_newest_backup(self):
         app = self.load_app("shop_inventory", "Corrupt Backup Test")
         with tempfile.TemporaryDirectory() as backup_root:
