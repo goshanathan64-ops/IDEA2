@@ -642,6 +642,31 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
             self.assertEqual(row[0], 7)
         app.db.close()
 
+    def test_shop_restore_does_not_duplicate_or_replace_backup_files(self):
+        app = self.load_app("shop_inventory", "Restore Backup Inventory Stability")
+        with tempfile.TemporaryDirectory() as backup_root:
+            app.user_data_dir = backup_root
+            app.db.execute(
+                "INSERT INTO products(name, price, quantity, cost_price, selling_price, currency) "
+                "VALUES(?,?,?,?,?,?)",
+                ("Snapshot item", 10.0, 6, 6.0, 10.0, "USD"),
+            )
+            app.db.commit()
+            selected = app._create_backup_file()
+            with open(selected, "rb") as backup_file:
+                original_bytes = backup_file.read()
+            before = sorted(os.listdir(app._backup_directory()))
+            app.db.execute("UPDATE products SET quantity = 2 WHERE name = ?", ("Snapshot item",))
+            app.db.commit()
+            app._restore_backup(selected)
+            after = sorted(os.listdir(app._backup_directory()))
+            with open(selected, "rb") as backup_file:
+                restored_bytes = backup_file.read()
+            self.assertEqual(restored_bytes, original_bytes)
+            self.assertEqual(len(after), len(before) + 1)
+            self.assertIn(os.path.basename(selected), after)
+        app.db.close()
+
     def test_shop_restore_connection_remains_usable_after_restore(self):
         app = self.load_app("shop_inventory", "Restore Connection Usability")
         with tempfile.TemporaryDirectory() as backup_root:
