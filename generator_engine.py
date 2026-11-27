@@ -393,7 +393,16 @@ class GeneratedApp(App):
         if not inventory:
             self.popup_message("Local backups", "No local backups have been created yet.")
             return
+        valid_count = sum(1 for item in inventory if item["valid"])
+        invalid_count = len(inventory) - valid_count
         body = BoxLayout(orientation="vertical", padding=dp(10), spacing=dp(6))
+        summary = Label(
+            text="{} valid backup(s) available | {} invalid backup(s) blocked".format(
+                valid_count, invalid_count
+            ),
+            size_hint_y=None, height=dp(42), halign="center"
+        )
+        body.add_widget(summary)
         scroll = ScrollView()
         entries = BoxLayout(orientation="vertical", spacing=dp(6), size_hint_y=None)
         entries.bind(minimum_height=entries.setter("height"))

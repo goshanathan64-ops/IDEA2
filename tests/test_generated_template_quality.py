@@ -351,6 +351,8 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
             "description": "Verify backup selection interface",
         })
         self.assertIn("Choose a backup to restore", source)
+        self.assertIn("valid backup(s) available", source)
+        self.assertIn("invalid backup(s) blocked", source)
         self.assertIn("confirm_restore_selected_backup", source)
         self.assertIn('disabled=not item["valid"]', source)
         self.assertIn("Current data will first be backed up.", source)
