@@ -765,6 +765,7 @@ if __name__ == "__main__":
             .replace("__APP_DESCRIPTION__", json.dumps(description))
             .replace("__ENABLED_FEATURES__", json.dumps(selected_features))
         ),
+        template_id=template_id,
     )
     generated = repair["source"]
     coverage = validate_feature_coverage(generated, selected_features)
@@ -791,6 +792,8 @@ if __name__ == "__main__":
         "# Automatic repair attempted: " + ("YES" if repair["attempted"] else "NO"),
         "# Automatic repair changed source: " + ("YES" if repair["repaired"] else "NO"),
         "# Repair attempts: " + str(repair["attempts"]),
+        "# Repair status: " + repair["status"],
+        "# Repair diagnostics: " + ("; ".join(repair["errors"]) or "none"),
         "# Unresolved supported features: " + (", ".join(repair["unresolved"]) or "none"),
         "# Completion: " + ("COMPLETE" if complete else "PARTIAL - review unsupported or missing features"),
         "# Source checks are deterministic fingerprints, not a substitute for device testing.",
