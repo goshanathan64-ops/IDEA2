@@ -289,6 +289,8 @@ def generate_booking_code(data):
     description = str(data.get("description") or "Offline booking and appointment manager").strip()
     requested = plan["requested"]
     selected = [feature for feature in BOOKING_FEATURES if feature in requested]
+    if "customer_details" in selected and "booking_records" not in selected:
+        selected.append("booking_records")
     if not requested:
         selected = list(BOOKING_FEATURES)
 
@@ -296,7 +298,7 @@ def generate_booking_code(data):
     generated = generated.replace("__APP_DESCRIPTION__", repr(description))
     generated = generated.replace("__ENABLED_FEATURES__", repr(selected))
     coverage = validate_feature_coverage(generated, selected, template_id="booking_appointments")
-    generated += "\\n".join([
+    generated += "\n".join([
         "",
         "# IDEA2APK V3 BLUEPRINT VERIFICATION",
         "# Template: booking_appointments",
