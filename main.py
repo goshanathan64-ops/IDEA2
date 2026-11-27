@@ -205,6 +205,13 @@ class IDEA2APK(App):
 
         form.add_widget(self.make_label("App features"))
 
+        self.template_guide_label = self.make_label(
+            "Choose a template to see its recommended features.",
+            72,
+            12
+        )
+        form.add_widget(self.template_guide_label)
+
         self.features_input = self.make_input(
             "Enter features separated by commas",
             100,
@@ -568,6 +575,7 @@ class IDEA2APK(App):
         self.target_input.text = project.get("target", "")
         self.type_input.text = project.get("app_type", "")
         self.features_input.text = project.get("features", "")
+        self.refresh_template_status()
 
         self.manager.current = "planner"
 
@@ -1105,9 +1113,13 @@ jobs:
         detail_popup.open()
 
     def refresh_template_status(self):
-        from template_catalog import get_template
+        from template_catalog import get_template, template_planner_guide
 
         template = get_template(self.selected_template_id or "shop_inventory")
+        if hasattr(self, "template_guide_label"):
+            self.template_guide_label.text = template_planner_guide(
+                self.selected_template_id or "shop_inventory"
+            )
         if template is None:
             label = "Unknown template"
         else:
