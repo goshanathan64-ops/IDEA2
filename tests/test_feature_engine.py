@@ -118,12 +118,25 @@ class FeatureEngineTests(unittest.TestCase):
             []
         )
         self.assertEqual(selected["features"], "")
-        self.assertEqual(analyze_blueprint(selected)["explicit"], [])
-        # Description hints remain separately identifiable until final selection is applied.
-        self.assertEqual(
-            analyze_blueprint(selected)["inferred"],
-            ["product_catalogue", "stock_tracking", "record_sales"],
+        self.assertTrue(selected["feature_selection_locked"])
+        plan = analyze_blueprint(selected)
+        self.assertEqual(plan["explicit"], [])
+        self.assertEqual(plan["inferred"], [])
+        self.assertEqual(plan["requested"], [])
+
+    def test_unticked_description_features_do_not_return_after_approval(self):
+        selected = apply_blueprint_feature_selection(
+            {
+                "description": "Products, stock and sales",
+                "features": "product catalogue, stock tracking, record sales",
+                "template_id": "shop_inventory",
+            },
+            ["product_catalogue"],
         )
+        plan = analyze_blueprint(selected)
+        self.assertEqual(plan["requested"], ["product_catalogue"])
+        self.assertEqual(plan["inferred"], [])
+        self.assertEqual(plan["available"], ["product_catalogue"])
 
     def test_blueprint_review_keeps_unsupported_features_visible(self):
         review = prepare_blueprint_review({
