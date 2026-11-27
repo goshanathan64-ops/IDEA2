@@ -31,12 +31,13 @@ class ProjectSchemaTests(unittest.TestCase):
 
     def test_only_implemented_templates_are_ready(self):
         ready = [item["id"] for item in list_templates() if item["status"] == "ready"]
-        self.assertEqual(ready, ["shop_inventory", "school_records", "expense_tracker", "booking_appointments", "task_manager"])
+        self.assertEqual(ready, ["shop_inventory", "school_records", "expense_tracker", "booking_appointments", "task_manager", "customer_manager"])
         self.assertEqual(get_template("shop_inventory")["status"], "ready")
         self.assertEqual(get_template("expense_tracker")["status"], "ready")
         self.assertEqual(get_template("school_records")["status"], "ready")
         self.assertEqual(get_template("booking_appointments")["status"], "ready")
         self.assertEqual(get_template("task_manager")["status"], "ready")
+        self.assertEqual(get_template("customer_manager")["status"], "ready")
 
     def test_support_report_does_not_claim_unknown_features(self):
         report = template_support_report(
@@ -59,9 +60,9 @@ class ProjectSchemaTests(unittest.TestCase):
         )
         self.assertEqual(report["unsupported"], ["budgets"])
 
-    def test_blueprint_report_marks_planned_template_not_ready(self):
+    def test_blueprint_report_marks_unknown_template_not_ready(self):
         report = blueprint_support_report({
-            "template_id": "customer_manager",
+            "template_id": "future_template",
             "features": "customer profiles, follow-ups",
         })
         self.assertEqual(report["readiness"], "NOT READY")
