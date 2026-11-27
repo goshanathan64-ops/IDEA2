@@ -13,7 +13,6 @@ ALIASES = {
     "booking history": "booking_history", "appointment history": "booking_history",
     "upcoming appointments": "appointment_scheduling",
     "students": "student_records", "student records": "student_records", "student profiles": "student_records",
-    "students": "student_records", "student records": "student_records", "student profiles": "student_records",
     "classes": "class_management", "class management": "class_management", "class records": "class_management",
     "attendance": "attendance_tracking", "attendance tracking": "attendance_tracking",
     "student attendance": "attendance_tracking", "exam results": "results_records",
