@@ -1,5 +1,6 @@
 import unittest
-from blueprint_intelligence import (analyze_blueprint_intelligence, render_blueprint_intelligence_summary,\n    recommend_blueprint_improvements, render_blueprint_improvements)
+from blueprint_intelligence import (analyze_blueprint_intelligence, render_blueprint_intelligence_summary,
+    recommend_blueprint_improvements, render_blueprint_improvements)
 
 class BlueprintIntelligenceTests(unittest.TestCase):
     def test_complete_blueprint_is_high_confidence(self):

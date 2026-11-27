@@ -16,7 +16,8 @@ from threading import Thread
 from github_builder import upload_and_dispatch
 from project_schema import normalize_project, validate_project
 from template_catalog import get_template, list_templates
-from blueprint_intelligence import (analyze_blueprint_intelligence, render_blueprint_intelligence_summary,\n    recommend_blueprint_improvements, render_blueprint_improvements)
+from blueprint_intelligence import (analyze_blueprint_intelligence, render_blueprint_intelligence_summary,
+    recommend_blueprint_improvements, render_blueprint_improvements)
 
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.uix.boxlayout import BoxLayout
