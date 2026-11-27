@@ -615,6 +615,33 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
 
 
 
+    def test_shop_restore_aborts_if_pre_restore_backup_fails(self):
+        app = self.load_app("shop_inventory", "Restore Backup Creation Failure")
+        with tempfile.TemporaryDirectory() as backup_root:
+            app.user_data_dir = backup_root
+            directory = os.path.join(backup_root, "backups")
+            os.makedirs(directory)
+            selected_backup = app._create_backup_file()
+            app.db.execute(
+                "INSERT INTO products (name, quantity, selling_price, currency) VALUES (?, ?, ?, ?)",
+                ("Current item", 7, 2.5, "USD"),
+            )
+            app.db.commit()
+            original_create_backup = app._create_backup_file
+            try:
+                app._create_backup_file = lambda: (_ for _ in ()).throw(
+                    sqlite3.DatabaseError("simulated backup storage failure")
+                )
+                with self.assertRaisesRegex(sqlite3.DatabaseError, "simulated backup storage failure"):
+                    app._restore_backup(selected_backup)
+            finally:
+                app._create_backup_file = original_create_backup
+            row = app.db.execute(
+                "SELECT quantity FROM products WHERE name = ?", ("Current item",)
+            ).fetchone()
+            self.assertEqual(row[0], 7)
+        app.db.close()
+
     def test_shop_restore_invalid_backup_does_not_create_pre_restore_backup(self):
         app = self.load_app("shop_inventory", "Invalid Backup No Side Effect")
         with tempfile.TemporaryDirectory() as backup_root:
