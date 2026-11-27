@@ -12,6 +12,47 @@ class FeatureEngineTests(unittest.TestCase):
         self.assertEqual(canonical_feature("product catalogue"), "product_catalogue")
         self.assertEqual(canonical_feature("low-stock alerts"), "low_stock_alerts")
 
+    def test_understands_plain_language_feature_requests_for_multiple_templates(self):
+        shop = analyze_blueprint({
+            "template_id": "shop_inventory",
+            "features": "Add products, manage stock, sell products, daily reports, USD/ZiG balances",
+        })
+        self.assertEqual(
+            shop["available"],
+            ["product_catalogue", "stock_tracking", "record_sales", "basic_reports", "currency_support"],
+        )
+        school = analyze_blueprint({
+            "template_id": "school_records",
+            "features": "admission numbers, class lists, daily attendance, subject marks",
+        })
+        self.assertEqual(
+            school["available"],
+            ["student_records", "class_management", "attendance_tracking", "results_records"],
+        )
+        tasks = analyze_blueprint({
+            "template_id": "task_manager",
+            "features": "task title, task deadline, task priority, mark as completed",
+        })
+        self.assertEqual(
+            tasks["available"],
+            ["task_records", "due_dates", "priority_levels", "completion_tracking"],
+        )
+
+    def test_blueprint_explains_each_feature_status(self):
+        plan = analyze_blueprint({
+            "template_id": "customer_manager",
+            "features": "phone and email contacts, follow-up dates, bulk SMS",
+        })
+        self.assertEqual(
+            [item["status"] for item in plan["feature_status"]],
+            ["available", "available", "unsupported"],
+        )
+        self.assertIn("not currently implemented", plan["feature_status"][2]["reason"])
+
+    def test_punctuation_variants_are_normalized(self):
+        self.assertEqual(canonical_feature("  USD/ZiG balances! "), "currency_support")
+        self.assertEqual(canonical_feature("Follow-up dates"), "follow_up_records")
+
     def test_reports_candidates_separately_from_unsupported(self):
         plan = analyze_blueprint({"template_id": "shop_inventory", "features": "Products, stock, sales, USD and ZiG support, backup/restore"})
         self.assertEqual(plan["available"], ["product_catalogue", "stock_tracking", "record_sales", "currency_support"])
