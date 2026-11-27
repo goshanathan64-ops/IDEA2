@@ -500,12 +500,11 @@ class IDEA2APK(App):
         automatic = preview["automatic"]
         generated = preview["generated"]
         if hasattr(self, "dependency_preview_label"):
-            self.dependency_preview_label.text = (
-                "AUTOMATIC REQUIREMENTS: " +
-                (", ".join(automatic) if automatic else "None") +
-                "\\nFINAL GENERATED FEATURES: " +
-                (", ".join(generated) if generated else "None")
+            from feature_engine import analyze_feature_compatibility, render_feature_compatibility
+            compatibility = analyze_feature_compatibility(
+                data.get("template_id") or "shop_inventory", selected
             )
+            self.dependency_preview_label.text = render_feature_compatibility(compatibility)
 
     def add_review_feature(self, *args):
         if not self.pending_blueprint_data:

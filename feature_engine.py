@@ -423,6 +423,43 @@ def preview_feature_dependencies(template_id, selected_features):
     }
 
 
+
+def analyze_feature_compatibility(template_id, selected_features):
+    """Explain supported, unsupported, and automatically required features before generation."""
+    checks = TEMPLATE_FEATURE_CHECKS.get(str(template_id), {})
+    requested = list(dict.fromkeys(str(item) for item in (selected_features or []) if str(item)))
+    supported = [item for item in requested if item in checks]
+    unsupported = [item for item in requested if item not in checks]
+    preview = preview_feature_dependencies(template_id, supported)
+    warnings = []
+    if str(template_id) not in TEMPLATE_FEATURE_CHECKS:
+        warnings.append("Unknown template: the generator cannot confirm feature compatibility.")
+    if unsupported:
+        warnings.append("Some requested features are not supported by this template.")
+    if not supported and requested:
+        warnings.append("No selected features are currently supported by this template.")
+    return {
+        "template_id": str(template_id),
+        "known_template": str(template_id) in TEMPLATE_FEATURE_CHECKS,
+        "supported": supported,
+        "unsupported": unsupported,
+        "automatic": preview["automatic"],
+        "generated": preview["generated"],
+        "warnings": warnings,
+        "compatible": bool(str(template_id) in TEMPLATE_FEATURE_CHECKS and not unsupported),
+    }
+
+
+def render_feature_compatibility(report):
+    """Format compatibility findings in plain language for Blueprint Review."""
+    report = report or {}
+    lines = ["FEATURE COMPATIBILITY: " + ("COMPATIBLE" if report.get("compatible") else "REVIEW NEEDED")]
+    lines.append("SUPPORTED: " + (", ".join(report.get("supported", [])) or "None"))
+    lines.append("NOT SUPPORTED: " + (", ".join(report.get("unsupported", [])) or "None"))
+    lines.append("REQUIRED AUTOMATICALLY: " + (", ".join(report.get("automatic", [])) or "None"))
+    lines.extend("WARNING: " + item for item in report.get("warnings", []))
+    return "\\n".join(lines)
+
 def select_generated_features(requested_features):
     """Expand required dependencies and default to the complete ready template."""
     requested = list(dict.fromkeys(requested_features or []))

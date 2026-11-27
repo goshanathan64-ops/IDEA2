@@ -1,6 +1,6 @@
 import unittest
 
-from feature_engine import FEATURE_SOURCE_CHECKS, analyze_blueprint, canonical_feature, prepare_blueprint_review, apply_blueprint_feature_selection, preview_feature_dependencies, repair_generated_source, select_generated_features, split_requested_features, validate_feature_coverage, validate_generated_source, verify_generated_feature_consistency, run_self_healing_pipeline
+from feature_engine import FEATURE_SOURCE_CHECKS, analyze_feature_compatibility, render_feature_compatibility, analyze_blueprint, canonical_feature, prepare_blueprint_review, apply_blueprint_feature_selection, preview_feature_dependencies, repair_generated_source, select_generated_features, split_requested_features, validate_feature_coverage, validate_generated_source, verify_generated_feature_consistency, run_self_healing_pipeline
 
 
 class FeatureEngineTests(unittest.TestCase):
@@ -174,6 +174,25 @@ class FeatureEngineTests(unittest.TestCase):
         self.assertFalse(plan["ready"])
         self.assertEqual(plan["available"], [])
         self.assertEqual(len(plan["unsupported"]), 2)
+
+    def test_feature_compatibility_reports_dependencies_and_unsupported_requests(self):
+        report = analyze_feature_compatibility("shop_inventory", ["record_sales", "backup_restore"])
+        self.assertEqual(report["supported"], ["record_sales"])
+        self.assertEqual(report["unsupported"], ["backup_restore"])
+        self.assertEqual(report["automatic"], ["product_catalogue", "stock_tracking"])
+        self.assertFalse(report["compatible"])
+        rendered = render_feature_compatibility(report)
+        self.assertIn("FEATURE COMPATIBILITY", rendered)
+        self.assertIn("backup_restore", rendered)
+        self.assertIn("product_catalogue", rendered)
+
+    def test_feature_compatibility_handles_unknown_template_safely(self):
+        report = analyze_feature_compatibility("future_template", ["student_records"])
+        self.assertFalse(report["known_template"])
+        self.assertFalse(report["compatible"])
+        self.assertEqual(report["supported"], [])
+        self.assertEqual(report["unsupported"], ["student_records"])
+        self.assertTrue(report["warnings"])
 
     def test_dependency_preview_for_shop_shows_required_stock_and_product_features(self):
         preview = preview_feature_dependencies(
