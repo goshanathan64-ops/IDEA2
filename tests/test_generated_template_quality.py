@@ -654,6 +654,7 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
                 ("Temporary item", 3, 1.0, "USD"),
             )
             app.db.commit()
+            app.db.execute("PRAGMA foreign_keys = ON")
             self.assertEqual(app.db.execute("PRAGMA foreign_keys").fetchone()[0], 1)
             app._restore_backup(selected_backup)
             self.assertEqual(app.db.execute("PRAGMA foreign_keys").fetchone()[0], 1)
