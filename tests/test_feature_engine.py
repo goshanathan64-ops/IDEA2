@@ -18,7 +18,7 @@ class FeatureEngineTests(unittest.TestCase):
         self.assertEqual(plan["unsupported"], ["backup/restore"])
 
     def test_unknown_template_does_not_claim_support(self):
-        plan = analyze_blueprint({"template_id": "school_records", "features": "student records, attendance"})
+        plan = analyze_blueprint({"template_id": "future_template", "features": "student records, attendance"})
         self.assertFalse(plan["ready"])
         self.assertEqual(plan["available"], [])
         self.assertEqual(len(plan["unsupported"]), 2)
