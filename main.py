@@ -412,11 +412,15 @@ class IDEA2APK(App):
             self.current_project = data
             self.result_text.text = code
             self.manager.current = "result"
+            template_name = (
+                "Expense Tracker" if data.get("template_id") == "expense_tracker"
+                else "Shop & Inventory"
+            )
             self.message(
-                "Generated using the currently supported Shop & Inventory "
-                "template (SQLite local storage). Other template categories "
-                "are listed as planned and are not generated yet. "
-                "Review the code before exporting or building."
+                "Generated using the " + template_name + " template. "
+                "The source includes a blueprint verification report showing "
+                "implemented and unsupported features. Review it before exporting "
+                "or building. Android device testing is still required."
             )
 
         except Exception as error:
