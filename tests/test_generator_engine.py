@@ -58,7 +58,7 @@ class GeneratorEngineTests(unittest.TestCase):
             "features": "products, stock, sales",
         })
         self.assertTrue(validate_generated_source(source)["valid"])
-        self.assertIn("IDEA2APK V3 BLUEPRINT ANALYSIS", source)
+        self.assertIn("IDEA2APK V3 BLUEPRINT VERIFICATION", source)
         self.assertIn("product_catalogue", source)
         self.assertIn("cost_price", source)
         self.assertIn("selling_price", source)
