@@ -139,5 +139,34 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
         app.db.close()
 
 
+    def test_shop_manager_saves_products_sales_customers_and_expenses(self):
+        app = self.load_app("shop_inventory", "Test Shop")
+        app.db.execute(
+            "INSERT INTO products(name, price, quantity, cost_price, selling_price, currency, low_stock_threshold) "
+            "VALUES(?,?,?,?,?,?,?)",
+            ("Mealie Meal", 8.0, 10, 5.0, 8.0, "USD", 3),
+        )
+        app.db.commit()
+        total, currency = app._save_sale({
+            "product": "Mealie Meal", "quantity": "2", "customer": "Tariro"
+        })
+        self.assertEqual((total, currency), (16.0, "USD"))
+        self.assertEqual(app.db.execute(
+            "SELECT quantity FROM products WHERE name='Mealie Meal'"
+        ).fetchone()[0], 8)
+        self.assertEqual(len(app._get_sales_history()), 1)
+        self.assertEqual(app._get_low_stock_products(), [])
+        app._save_customer("Tariro", "0771000000")
+        self.assertEqual(app._get_customers("Tariro")[0], ("Tariro", "0771000000"))
+        app._save_expense("Transport", 2.5, "USD")
+        self.assertEqual(app._get_expense_history()[0][1:], ("Transport", 2.5, "USD"))
+        with self.assertRaisesRegex(ValueError, "Not enough stock"):
+            app._save_sale({"product": "Mealie Meal", "quantity": "20"})
+        self.assertEqual(app.db.execute(
+            "SELECT quantity FROM products WHERE name='Mealie Meal'"
+        ).fetchone()[0], 8)
+        app.db.close()
+
+
 if __name__ == "__main__":
     unittest.main()
