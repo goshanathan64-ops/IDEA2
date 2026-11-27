@@ -69,10 +69,16 @@ TEMPLATES = [
         "id": "task_manager",
         "name": "Task Manager",
         "category": "productivity",
-        "status": "planned",
-        "description": "Tasks, due dates, priorities and completion tracking.",
-        "supported_features": [],
-        "unsupported_features": [],
+        "status": "ready",
+        "description": "Offline task lists, deadlines, priorities, categories, search, completion tracking and summaries.",
+        "supported_features": [
+            "task_records", "due_dates", "priority_levels", "completion_tracking",
+            "task_categories", "task_search", "basic_reports", "local_sqlite_storage"
+        ],
+        "unsupported_features": [
+            "recurring_tasks", "team_assignments", "push_notifications",
+            "calendar_sync", "cloud_sync", "multi_user_login"
+        ],
     },
     {
         "id": "customer_manager",
