@@ -24,7 +24,7 @@ permissions:
 
 concurrency:
   group: idea2apk-v3-tests-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   tests:
