@@ -1,7 +1,7 @@
 """Independent offline Booking & Appointments app generator for IDEA2APK V3."""
 import re
 
-from feature_engine import analyze_blueprint, validate_feature_coverage, validate_generated_source
+from feature_engine import analyze_blueprint, expand_template_features, validate_feature_coverage, validate_generated_source
 
 BOOKING_FEATURES = [
     "booking_records", "appointment_scheduling", "customer_details",

@@ -1,5 +1,5 @@
 """Independent offline Customer Manager app generator for IDEA2APK V3."""
-from feature_engine import analyze_blueprint, validate_feature_coverage, validate_generated_source
+from feature_engine import analyze_blueprint, expand_template_features, validate_feature_coverage, validate_generated_source
 
 CUSTOMER_FEATURES = [
     "customer_profiles", "contact_details", "customer_notes", "follow_up_records",

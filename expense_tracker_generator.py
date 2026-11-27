@@ -4,6 +4,7 @@ import re
 
 from feature_engine import (
     analyze_blueprint,
+    expand_template_features,
     validate_feature_coverage,
     validate_generated_source,
 )

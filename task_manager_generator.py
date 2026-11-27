@@ -1,5 +1,5 @@
 """Independent offline Task Manager app generator for IDEA2APK V3."""
-from feature_engine import analyze_blueprint, validate_feature_coverage, validate_generated_source
+from feature_engine import analyze_blueprint, expand_template_features, validate_feature_coverage, validate_generated_source
 
 TASK_FEATURES = [
     "task_records", "due_dates", "priority_levels", "completion_tracking",
