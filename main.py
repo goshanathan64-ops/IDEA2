@@ -156,6 +156,13 @@ class IDEA2APK(App):
             self.make_label("SMART APP PLANNER", 45, 22)
         )
 
+        self.template_status_label = self.make_label(
+            "ACTIVE TEMPLATE: Shop & Inventory — READY",
+            42,
+            13
+        )
+        root.add_widget(self.template_status_label)
+
         scroll = ScrollView()
 
         form = BoxLayout(
@@ -381,14 +388,29 @@ class IDEA2APK(App):
         if not data:
             return
 
+        from feature_engine import analyze_blueprint
+        from template_catalog import get_template
+
+        plan = analyze_blueprint(data)
+        template = get_template(data.get("template_id", "shop_inventory"))
+        template_name = template["name"] if template else data.get("template_id", "Unknown")
+        supported = ", ".join(plan["available"]) or "none requested"
+        unsupported = ", ".join(plan["unsupported"]) or "none"
+        readiness = "READY" if plan["ready"] else "NOT READY"
+
         blueprint = (
-            "IDEA2APK APP BLUEPRINT\n\n"
-            "APP NAME: " + data["name"] + "\n\n"
-            "DESCRIPTION: " + data["description"] + "\n\n"
-            "TARGET USERS: " + data["target"] + "\n\n"
-            "APP TYPE: " + data["app_type"] + "\n\n"
-            "FEATURES:\n" + data["features"] + "\n\n"
-            "NEXT STEP: Generate the application code."
+            "IDEA2APK APP BLUEPRINT\\n\\n"
+            "APP NAME: " + data["name"] + "\\n\\n"
+            "DESCRIPTION: " + data["description"] + "\\n\\n"
+            "TARGET USERS: " + data["target"] + "\\n\\n"
+            "APP TYPE: " + data["app_type"] + "\\n\\n"
+            "SELECTED TEMPLATE: " + template_name + " (" + readiness + ")\\n\\n"
+            "REQUESTED FEATURES:\\n" + (data["features"] or "Template defaults") + "\\n\\n"
+            "SUPPORTED BY THIS TEMPLATE:\\n" + supported + "\\n\\n"
+            "NOT SUPPORTED YET:\\n" + unsupported + "\\n\\n"
+            "NOTE: Supported means this template has a generator for the feature; "
+            "generated source is checked again after code generation.\\n\\n"
+            "NEXT STEP: Review this blueprint, then generate the application code."
         )
 
         self.generated_code = blueprint
@@ -531,6 +553,7 @@ class IDEA2APK(App):
     def edit_project(self, project):
         self.current_project = project
         self.selected_template_id = project.get("template_id", "shop_inventory")
+        self.refresh_template_status()
 
         self.name_input.text = project.get("name", "")
         self.description_input.text = project.get("description", "")
@@ -1073,12 +1096,25 @@ jobs:
         body.add_widget(self.make_button("BACK TO GALLERY", lambda *_: detail_popup.dismiss()))
         detail_popup.open()
 
+    def refresh_template_status(self):
+        from template_catalog import get_template
+
+        template = get_template(self.selected_template_id or "shop_inventory")
+        if template is None:
+            label = "Unknown template"
+        else:
+            state = "READY" if template.get("status") == "ready" else "COMING SOON"
+            label = template.get("name", "Template") + " — " + state
+        if hasattr(self, "template_status_label"):
+            self.template_status_label.text = "ACTIVE TEMPLATE: " + label
+
     def apply_template(self, template, popup=None, *args):
         if template.get("status") != "ready":
             self.message("This template is not ready to use yet.")
             return
 
         self.selected_template_id = template["id"]
+        self.refresh_template_status()
         self.current_project = None
         self.name_input.text = ""
         self.description_input.text = template.get("description", "")
