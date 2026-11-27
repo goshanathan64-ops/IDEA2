@@ -1,4 +1,6 @@
+import os
 import sqlite3
+import tempfile
 import sys
 import types
 import unittest
@@ -184,6 +186,69 @@ class GeneratorEngineTests(unittest.TestCase):
         low_stock = app._get_low_stock_products()
         self.assertEqual(low_stock, [("Sugar", 3, 3, "USD")])
         app.db.close()
+
+    def test_edit_product_preserves_stock(self):
+        app = self.make_shop_with_product(quantity=17)
+        app._update_product({
+            "name": "Sugar", "cost_price": "2.0", "selling_price": "4.5",
+            "currency": "ZIG", "low_stock_threshold": "6"
+        })
+        row = app.db.execute(
+            "SELECT quantity, cost_price, selling_price, price, currency, low_stock_threshold "
+            "FROM products WHERE name='Sugar'"
+        ).fetchone()
+        self.assertEqual(row, (17, 2.0, 4.5, 4.5, "ZIG", 6))
+        app.db.close()
+
+    def test_product_with_sales_cannot_be_deleted(self):
+        app = self.make_shop_with_product(quantity=5)
+        app._save_sale({"product": "Sugar", "quantity": "1", "customer": ""})
+        with self.assertRaisesRegex(ValueError, "sales history"):
+            app._delete_product("Sugar")
+        self.assertEqual(
+            app.db.execute("SELECT COUNT(*) FROM products WHERE name='Sugar'").fetchone()[0],
+            1
+        )
+        app.db.close()
+
+    def test_product_without_sales_can_be_deleted(self):
+        app = self.make_shop_with_product(quantity=5)
+        app._delete_product("Sugar")
+        self.assertEqual(app.db.execute("SELECT COUNT(*) FROM products").fetchone()[0], 0)
+        app.db.close()
+
+    def test_local_backup_restore_preserves_shop_records(self):
+        app_class = self.load_generated_app_class(generate_app_code({
+            "template_id": "shop_inventory",
+            "name": "My Shop",
+            "description": "Offline shop manager",
+            "features": "products, stock, sales",
+        }))
+        app = app_class()
+        with tempfile.TemporaryDirectory() as directory:
+            app.user_data_dir = directory
+            app.db = sqlite3.connect(os.path.join(directory, "my_shop.db"))
+            app.create_tables()
+            app.db.execute(
+                "INSERT INTO products(name, price, quantity, cost_price, selling_price, currency) "
+                "VALUES('Sugar', 3, 8, 1, 3, 'USD')"
+            )
+            app.db.commit()
+            backup_path = app._create_backup_file()
+            app.db.execute("UPDATE products SET quantity=1 WHERE name='Sugar'")
+            app.db.commit()
+            restored = app._restore_latest_backup()
+            self.assertEqual(os.path.basename(restored), os.path.basename(backup_path))
+            quantity = app.db.execute(
+                "SELECT quantity FROM products WHERE name='Sugar'"
+            ).fetchone()[0]
+            self.assertEqual(quantity, 8)
+            backups = [
+                name for name in os.listdir(os.path.join(directory, "backups"))
+                if name.endswith(".db")
+            ]
+            self.assertGreaterEqual(len(backups), 2)
+            app.db.close()
 
     def test_unready_template_is_not_misrepresented_as_shop_app(self):
         with self.assertRaisesRegex(ValueError, "not ready to generate"):
