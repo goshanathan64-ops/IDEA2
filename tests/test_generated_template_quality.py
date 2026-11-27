@@ -615,6 +615,21 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
 
 
 
+    def test_shop_restore_invalid_backup_does_not_create_pre_restore_backup(self):
+        app = self.load_app("shop_inventory", "Invalid Backup No Side Effect")
+        with tempfile.TemporaryDirectory() as backup_root:
+            app.user_data_dir = backup_root
+            directory = os.path.join(backup_root, "backups")
+            os.makedirs(directory)
+            invalid_path = os.path.join(directory, "my_shop_invalid_restore.db")
+            with open(invalid_path, "wb") as handle:
+                handle.write(b"not a valid sqlite database")
+            before = sorted(os.listdir(directory))
+            with self.assertRaisesRegex(ValueError, "invalid or incomplete"):
+                app._restore_backup(invalid_path)
+            self.assertEqual(sorted(os.listdir(directory)), before)
+        app.db.close()
+
     def test_shop_restore_rejects_empty_backup_file(self):
         app = self.load_app("shop_inventory", "Reject Empty Backup")
         with tempfile.TemporaryDirectory() as backup_root:
