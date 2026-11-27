@@ -67,7 +67,7 @@ class ProjectSchemaTests(unittest.TestCase):
         })
         self.assertEqual(report["readiness"], "NOT READY")
         self.assertEqual(report["supported"], [])
-        self.assertEqual(report["unsupported"], ["customer_profiles", "follow_ups"])
+        self.assertEqual(report["unsupported"], ["customer_profiles", "follow_up_records"])
 
 
 if __name__ == "__main__":
