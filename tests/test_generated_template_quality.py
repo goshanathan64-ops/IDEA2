@@ -642,6 +642,30 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
             self.assertEqual(row[0], 7)
         app.db.close()
 
+    def test_shop_restore_keeps_selected_backup_snapshot_unchanged(self):
+        app = self.load_app("shop_inventory", "Restore Snapshot Integrity")
+        with tempfile.TemporaryDirectory() as backup_root:
+            app.user_data_dir = backup_root
+            directory = os.path.join(backup_root, "backups")
+            os.makedirs(directory)
+            app.db.execute(
+                "INSERT INTO products (name, quantity, selling_price, currency) VALUES (?, ?, ?, ?)",
+                ("Saved item", 9, 5.0, "USD"),
+            )
+            app.db.commit()
+            selected_backup = app._create_backup_file()
+            app._restore_backup(selected_backup)
+            self.assertTrue(app._is_valid_backup_file(selected_backup))
+            snapshot = sqlite3.connect(selected_backup)
+            try:
+                row = snapshot.execute(
+                    "SELECT quantity FROM products WHERE name = ?", ("Saved item",)
+                ).fetchone()
+            finally:
+                snapshot.close()
+            self.assertEqual(row[0], 9)
+        app.db.close()
+
     def test_shop_restore_does_not_commit_unrelated_pending_transaction(self):
         app = self.load_app("shop_inventory", "Restore Pending Transaction Safety")
         with tempfile.TemporaryDirectory() as backup_root:
