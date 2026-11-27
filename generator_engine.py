@@ -595,7 +595,11 @@ class GeneratedApp(App):
         # Reject symbolic links explicitly, even when their targets remain
         # inside the backup folder. Inventory never offers symlinks, and the
         # restore API must enforce the same rule for direct callers.
-        if os.path.islink(supplied_path):
+        supplied_directory = os.path.dirname(supplied_path)
+        if (
+            os.path.islink(supplied_path)
+            or os.path.realpath(supplied_directory) != supplied_directory
+        ):
             raise ValueError("Symbolic-link backups cannot be restored.")
         candidate = os.path.realpath(supplied_path)
         if os.path.dirname(candidate) != directory:
