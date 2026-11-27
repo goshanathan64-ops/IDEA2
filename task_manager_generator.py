@@ -265,7 +265,7 @@ def generate_task_manager_code(data):
     generated = generated.replace("__APP_DESCRIPTION__", repr(description))
     generated = generated.replace("__ENABLED_FEATURES__", repr(selected))
     checks = validate_feature_coverage(generated, selected, template_id="task_manager")
-    generated += "\\n".join([
+    generated += "\n".join([
         "",
         "# IDEA2APK V3 BLUEPRINT VERIFICATION",
         "# Template: task_manager",
