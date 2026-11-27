@@ -579,7 +579,32 @@ def run_self_healing_pipeline(source, expected_features, template_id, regenerate
     coverage = validate_feature_coverage(final_source, expected_features, template_id)
     consistency_result = consistency(final_source)
     complete = validation["valid"] and coverage["complete"] and consistency_result["consistent"]
+    quality = analyze_generated_app_quality(final_source, validation, coverage, consistency_result)
     return {
         "source": final_source, "repair": repair, "validation": validation,
         "coverage": coverage, "consistency": consistency_result, "complete": complete,
+        "quality": quality,
+    }
+
+
+def analyze_generated_app_quality(source, validation, coverage, consistency, blueprint=None):
+    """Score structural readiness without pretending this replaces device testing."""
+    source = source if isinstance(source, str) else ""
+    checks = [
+        ("python_syntax", bool(validation.get("valid"))),
+        ("feature_coverage", bool(coverage.get("complete"))),
+        ("feature_consistency", bool(consistency.get("consistent"))),
+        ("kivy_app_structure", "class GeneratedApp" in source and "def build(self)" in source),
+        ("local_database", "sqlite3" in source and "CREATE TABLE" in source),
+        ("app_entrypoint", "__main__" in source and ".run()" in source),
+    ]
+    passed = [name for name, ok in checks if ok]
+    failed = [name for name, ok in checks if not ok]
+    warnings = [name.replace("_", " ") + " check failed" for name in failed]
+    score = int(round(100 * len(passed) / len(checks)))
+    return {
+        "score": score, "passed": passed, "failed": failed,
+        "warnings": warnings, "checks": len(checks),
+        "grade": "READY" if score == 100 else "REVIEW" if score >= 67 else "WEAK",
+        "note": "Static quality checks only; generated app still requires build and device testing.",
     }

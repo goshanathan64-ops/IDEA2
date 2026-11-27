@@ -351,5 +351,20 @@ class FeatureEngineTests(unittest.TestCase):
         self.assertFalse(result["repair"]["attempted"])
         self.assertEqual(calls, [])
 
+    def test_generated_app_quality_audit_reports_score_and_missing_checks(self):
+        from feature_engine import analyze_generated_app_quality
+        validation = {"valid": True}
+        coverage = {"complete": True}
+        consistency = {"consistent": True}
+        good = "class GeneratedApp:\\n    def build(self):\\n        pass\\nimport sqlite3\\nCREATE TABLE\\nif __name__ == '__main__':\\n    app.run()"
+        result = analyze_generated_app_quality(good, validation, coverage, consistency)
+        self.assertEqual(result["score"], 100)
+        self.assertEqual(result["grade"], "READY")
+        self.assertEqual(result["failed"], [])
+        weak = analyze_generated_app_quality("", {"valid": False}, {"complete": False}, {"consistent": False})
+        self.assertEqual(weak["score"], 0)
+        self.assertEqual(weak["grade"], "WEAK")
+        self.assertEqual(len(weak["warnings"]), 6)
+
 if __name__ == "__main__":
     unittest.main()
