@@ -766,6 +766,7 @@ if __name__ == "__main__":
             .replace("__ENABLED_FEATURES__", json.dumps(selected_features))
         ),
         template_id=template_id,
+        consistency_callback=lambda candidate: verify_generated_feature_consistency(candidate, selected_features, template_id=template_id),
     )
     generated = repair["source"]
     coverage = validate_feature_coverage(generated, selected_features, template_id=template_id)

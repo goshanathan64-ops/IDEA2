@@ -225,6 +225,28 @@ class FeatureEngineTests(unittest.TestCase):
     def test_empty_feature_list_keeps_full_ready_template(self):
         self.assertEqual(select_generated_features([]), list(FEATURE_SOURCE_CHECKS))
 
+    def test_repair_regenerates_consistency_mismatch_once_and_passes(self):
+        broken = "ENABLED_FEATURES = []\\n"
+        clean = "ENABLED_FEATURES = ['product_catalogue']" + chr(10) + "# CREATE TABLE IF NOT EXISTS products" + chr(10) + "def show_products():" + chr(10) + "    pass"
+        calls = []
+        def regen():
+            calls.append(1)
+            return clean
+        check = lambda candidate: verify_generated_feature_consistency(candidate, ["product_catalogue"])
+        result = repair_generated_source(broken, ["product_catalogue"], regen, consistency_callback=check)
+        self.assertTrue(result["attempted"])
+        self.assertTrue(result["repaired"])
+        self.assertTrue(check(result["source"])["consistent"])
+        self.assertEqual(len(calls), 1)
+
+    def test_repair_rejects_candidate_that_still_has_mismatch(self):
+        broken = "ENABLED_FEATURES = []\\n"
+        check = lambda candidate: verify_generated_feature_consistency(candidate, ["product_catalogue"])
+        result = repair_generated_source(broken, ["product_catalogue"], lambda: broken, consistency_callback=check)
+        self.assertTrue(result["attempted"])
+        self.assertFalse(result["repaired"])
+        self.assertTrue(result["errors"])
+
     def test_generated_feature_consistency_detects_mismatch(self):
         source = "ENABLED_FEATURES = ['product_catalogue']\\n"
         result = verify_generated_feature_consistency(source, ["product_catalogue", "stock_tracking"])

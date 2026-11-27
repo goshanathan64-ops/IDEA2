@@ -491,11 +491,12 @@ def validate_feature_coverage(source, requested_features, template_id="shop_inve
     return {"implemented": implemented, "missing": missing, "complete": not missing}
 
 
-def repair_generated_source(source, requested_features, regenerate_callback=None, template_id="shop_inventory"):
+def repair_generated_source(source, requested_features, regenerate_callback=None, template_id="shop_inventory", consistency_callback=None):
     """Attempt one safe regeneration without accepting syntax or coverage regressions."""
     initial_validation = validate_generated_source(source)
     initial_coverage = validate_feature_coverage(source, requested_features, template_id)
-    needs_repair = (not initial_validation["valid"]) or bool(initial_coverage["missing"])
+    initial_consistency = consistency_callback(source) if callable(consistency_callback) else {"consistent": True, "errors": []}
+    needs_repair = (not initial_validation["valid"]) or bool(initial_coverage["missing"]) or not initial_consistency["consistent" ]
     result_source, validation, coverage = source, initial_validation, initial_coverage
     attempted = repaired = False
     errors = []
@@ -506,12 +507,16 @@ def repair_generated_source(source, requested_features, regenerate_callback=None
             candidate = regenerate_callback()
             candidate_validation = validate_generated_source(candidate)
             candidate_coverage = validate_feature_coverage(candidate, requested_features, template_id)
+            candidate_consistency = consistency_callback(candidate) if callable(consistency_callback) else {"consistent": True, "errors": []}
+            consistency_passed = candidate_consistency["consistent"]
             coverage_not_regressed = set(candidate_coverage["missing"]).issubset(set(initial_coverage["missing"]))
-            if candidate_validation["valid"] and coverage_not_regressed:
+            if candidate_validation["valid"] and coverage_not_regressed and consistency_passed:
                 result_source, validation, coverage = candidate, candidate_validation, candidate_coverage
                 repaired = candidate != source
             else:
                 errors.extend(candidate_validation["errors"])
+                if not consistency_passed:
+                    errors.extend(candidate_consistency.get("errors", ["Consistency check failed after regeneration."]))
                 if not coverage_not_regressed:
                     dropped = sorted(set(candidate_coverage["missing"]) - set(initial_coverage["missing"]))
                     errors.append("Regeneration was rejected because it removed verified features: " + ", ".join(dropped))
