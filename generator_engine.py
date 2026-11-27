@@ -35,7 +35,8 @@ def generate_app_code(data):
 
     name = (data.get("name") or "My Shop").strip()
     description = (data.get("description") or "Shop management application").strip()
-    safe_title = re.sub(r"[^A-Za-z0-9 _-]", "", name) or "My Shop"
+    # Preserve the user's exact app name; json.dumps safely escapes it as a Python string literal.
+    safe_title = name or "My Shop"
 
     template = r'''import os
 import sqlite3
