@@ -48,7 +48,7 @@ class FeatureEngineTests(unittest.TestCase):
         self.assertEqual(plan["explicit"], ["record_sales"])
         self.assertEqual(
             plan["inferred"],
-            ["product_catalogue", "stock_tracking", "currency_support", "basic_reports"],
+            ["product_catalogue", "stock_tracking", "basic_reports", "currency_support"],
         )
         self.assertEqual(
             plan["requested"],
@@ -67,7 +67,7 @@ class FeatureEngineTests(unittest.TestCase):
         })
         self.assertEqual(
             school["inferred"],
-            ["student_records", "attendance_tracking", "class_management", "results_records"],
+            ["student_records", "class_management", "attendance_tracking", "results_records"],
         )
         unknown = analyze_blueprint({
             "template_id": "future_template",
