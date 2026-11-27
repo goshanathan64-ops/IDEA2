@@ -208,8 +208,8 @@ class GeneratedApp(App):
         if not rows:
             text = "No products yet. Use Add Product to create your first item."
         else:
-            text = "PRODUCT | COST | SELL | CURRENCY | STOCK | ALERT\\n"
-            text += "\\n".join(
+            text = "PRODUCT | COST | SELL | CURRENCY | STOCK | ALERT\n"
+            text += "\n".join(
                 "{} | {:.2f} | {:.2f} | {} | {} | {}".format(*row)
                 for row in rows
             )
