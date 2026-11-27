@@ -129,6 +129,62 @@ class GeneratorEngineTests(unittest.TestCase):
         self.assertEqual(app.db.execute("SELECT COUNT(*) FROM products").fetchone()[0], 1)
         app.db.close()
 
+    def make_shop_with_product(self, quantity=10, threshold=3):
+        source = generate_app_code({
+            "template_id": "shop_inventory",
+            "name": "My Shop",
+            "description": "Offline shop manager",
+            "features": "products, stock, sales",
+        })
+        app_class = self.load_generated_app_class(source)
+        app = app_class()
+        app.db = sqlite3.connect(":memory:")
+        app.create_tables()
+        app.db.execute(
+            "INSERT INTO products(name, price, quantity, cost_price, selling_price, currency, low_stock_threshold) "
+            "VALUES(?,?,?,?,?,?,?)",
+            ("Sugar", 3.0, quantity, 1.5, 3.0, "USD", threshold)
+        )
+        app.db.commit()
+        return app
+
+    def test_sale_records_and_reduces_stock_atomically(self):
+        app = self.make_shop_with_product(quantity=10)
+        total, currency = app._save_sale({
+            "product": "Sugar", "quantity": "4", "customer": "Walk-in"
+        })
+        self.assertEqual((total, currency), (12.0, "USD"))
+        self.assertEqual(
+            app.db.execute("SELECT quantity FROM products WHERE name='Sugar'").fetchone()[0],
+            6
+        )
+        sale = app.db.execute(
+            "SELECT quantity, unit_price, unit_cost, currency, cost_known, customer FROM sales"
+        ).fetchone()
+        self.assertEqual(sale, (4, 3.0, 1.5, "USD", 1, "Walk-in"))
+        app.db.close()
+
+    def test_overselling_does_not_save_sale_or_change_stock(self):
+        app = self.make_shop_with_product(quantity=3)
+        with self.assertRaisesRegex(ValueError, "Not enough stock"):
+            app._save_sale({"product": "Sugar", "quantity": "4", "customer": ""})
+        self.assertEqual(
+            app.db.execute("SELECT quantity FROM products WHERE name='Sugar'").fetchone()[0],
+            3
+        )
+        self.assertEqual(app.db.execute("SELECT COUNT(*) FROM sales").fetchone()[0], 0)
+        app.db.close()
+
+    def test_sales_history_and_low_stock_queries(self):
+        app = self.make_shop_with_product(quantity=5, threshold=3)
+        app._save_sale({"product": "Sugar", "quantity": "2", "customer": "Tariro"})
+        history = app._get_sales_history()
+        self.assertEqual(len(history), 1)
+        self.assertEqual(history[0][1:], ("Sugar", 2, 3.0, "USD", 6.0, "Tariro"))
+        low_stock = app._get_low_stock_products()
+        self.assertEqual(low_stock, [("Sugar", 3, 3, "USD")])
+        app.db.close()
+
     def test_unready_template_is_not_misrepresented_as_shop_app(self):
         with self.assertRaisesRegex(ValueError, "not ready to generate"):
             generate_app_code({
