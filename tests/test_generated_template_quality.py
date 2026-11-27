@@ -474,6 +474,19 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
         app.db.close()
 
 
+    def test_shop_backup_verification_failure_cleans_temporary_file(self):
+        app = self.load_app("shop_inventory", "Failed Backup Cleanup")
+        with tempfile.TemporaryDirectory() as backup_root:
+            app.user_data_dir = backup_root
+            app._is_valid_backup_file = lambda _path: False
+            with self.assertRaisesRegex(
+                sqlite3.DatabaseError, "Backup verification failed"
+            ):
+                app._create_backup_file()
+            directory = os.path.join(backup_root, "backups")
+            self.assertEqual(os.listdir(directory), [])
+        app.db.close()
+
     def test_shop_backup_is_published_only_after_verification(self):
         app = self.load_app("shop_inventory", "Atomic Backup Publication")
         with tempfile.TemporaryDirectory() as backup_root:
