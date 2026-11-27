@@ -331,6 +331,30 @@ class GeneratorEngineTests(unittest.TestCase):
         self.assertIn('("record_sales", "Record Sale", self.record_sale)', source)
         self.assertIn('("expense_records", "Record Expense", self.add_expense)', source)
 
+    def test_blueprint_report_separates_unsupported_from_missing_features(self):
+        source = generate_app_code({
+            "template_id": "shop_inventory",
+            "name": "Village Shop",
+            "description": "A simple shop",
+            "target": "Tuckshop owners",
+            "features": "products, stock, bulk SMS",
+        })
+        self.assertIn("# App: Village Shop", source)
+        self.assertIn("# Target users: Tuckshop owners", source)
+        self.assertIn("# Unsupported by selected template: bulk_sms_campaigns", source)
+        self.assertIn("# Missing supported features: none", source)
+        self.assertIn("# Completion: PARTIAL", source)
+
+    def test_approved_blueprint_cannot_generate_with_no_selected_features(self):
+        with self.assertRaisesRegex(ValueError, "Select at least one feature"):
+            generate_app_code({
+                "template_id": "shop_inventory",
+                "name": "Empty Plan",
+                "description": "Products and stock",
+                "features": "",
+                "feature_selection_locked": True,
+            })
+
     def test_generated_menu_uses_all_features_when_blueprint_is_empty(self):
         source = generate_app_code({
             "template_id": "shop_inventory",
