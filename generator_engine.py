@@ -48,36 +48,75 @@ class GeneratedApp(App):
         self.db.execute("PRAGMA foreign_keys = ON")
         self.create_tables()
 
-        root = BoxLayout(orientation="vertical", padding=dp(12), spacing=dp(8))
-        root.add_widget(Label(text=APP_TITLE, font_size=sp(24), size_hint_y=None, height=dp(48)))
-        root.add_widget(Label(text=APP_DESCRIPTION, font_size=sp(13), size_hint_y=None, height=dp(48)))
+        root = BoxLayout(orientation="vertical", padding=dp(10), spacing=dp(6))
+        header = BoxLayout(orientation="vertical", size_hint_y=None, height=dp(76), spacing=dp(2))
+        header.add_widget(Label(text=APP_TITLE, font_size=sp(23), size_hint_y=None, height=dp(42)))
+        header.add_widget(Label(text=APP_DESCRIPTION, font_size=sp(12), size_hint_y=None, height=dp(30)))
+        root.add_widget(header)
 
-        actions = [
-            ("Dashboard", self.show_dashboard),
-            ("Products / Inventory", self.show_products),
-            ("Add Product", self.add_product),
-            ("Edit Product", self.edit_product),
-            ("Delete Product", self.delete_product),
-            ("Record Sale", self.record_sale),
-            ("Sales History", self.show_sales_history),
-            ("Low Stock", self.show_low_stock),
-            ("Customers", self.add_customer),
-            ("Customer List / Search", self.show_customers),
-            ("Expenses", self.add_expense),
-            ("Expense History", self.show_expense_history),
-            ("Reports", self.show_reports),
-            ("Daily Report", self.show_daily_report),
-            ("Monthly Report", self.show_monthly_report),
-            ("Create Backup", self.create_backup),
-            ("Restore Latest Backup", self.confirm_restore_backup),
+        self.dashboard_summary = Label(
+            text="Loading business summary...",
+            size_hint_y=None, height=dp(104), font_size=sp(13),
+            halign="left", valign="middle"
+        )
+        self.dashboard_summary.bind(size=lambda obj, size: setattr(obj, "text_size", size))
+        root.add_widget(self.dashboard_summary)
+
+        menu = ScrollView(do_scroll_x=False, bar_width=dp(4))
+        menu_content = BoxLayout(
+            orientation="vertical", size_hint_y=None, spacing=dp(7), padding=(0, dp(4))
+        )
+        menu_content.bind(minimum_height=menu_content.setter("height"))
+
+        sections = [
+            ("SALES & STOCK", [
+                ("Products / Inventory", self.show_products),
+                ("Add Product", self.add_product),
+                ("Edit Product", self.edit_product),
+                ("Delete Product", self.delete_product),
+                ("Record Sale", self.record_sale),
+                ("Sales History", self.show_sales_history),
+                ("Low Stock Alerts", self.show_low_stock),
+            ]),
+            ("CUSTOMERS & EXPENSES", [
+                ("Add / Update Customer", self.add_customer),
+                ("Customer List / Search", self.show_customers),
+                ("Record Expense", self.add_expense),
+                ("Expense History", self.show_expense_history),
+            ]),
+            ("REPORTS & DATA SAFETY", [
+                ("Business Reports", self.show_reports),
+                ("Today's Report", self.show_daily_report),
+                ("This Month's Report", self.show_monthly_report),
+                ("Create Backup", self.create_backup),
+                ("Restore Latest Backup", self.confirm_restore_backup),
+            ]),
         ]
-        for caption, callback in actions:
-            button = Button(text=caption, size_hint_y=None, height=dp(46))
-            button.bind(on_release=callback)
-            root.add_widget(button)
+        for section_title, actions in sections:
+            heading = Label(
+                text=section_title, size_hint_y=None, height=dp(30),
+                font_size=sp(13), bold=True
+            )
+            menu_content.add_widget(heading)
+            for caption, callback in actions:
+                button = Button(text=caption, size_hint_y=None, height=dp(48))
+                button.bind(on_release=callback)
+                menu_content.add_widget(button)
+        menu.add_widget(menu_content)
+        root.add_widget(menu)
 
-        self.status = Label(text="Ready. Your records are stored on this device.", font_size=sp(12))
-        root.add_widget(self.status)
+        footer = BoxLayout(size_hint_y=None, height=dp(46), spacing=dp(8))
+        home_button = Button(text="HOME / REFRESH")
+        home_button.bind(on_release=self.show_dashboard)
+        footer.add_widget(home_button)
+        self.status = Label(
+            text="Ready. Records are saved on this device.",
+            font_size=sp(11), size_hint_x=1.4
+        )
+        footer.add_widget(self.status)
+        root.add_widget(footer)
+
+        self.root_layout = root
         self.show_dashboard()
         return root
 
@@ -656,7 +695,15 @@ class GeneratedApp(App):
         usd_sales = self.db.execute("SELECT COALESCE(SUM(quantity * unit_price),0) FROM sales WHERE currency='USD'").fetchone()[0]
         zig_sales = self.db.execute("SELECT COALESCE(SUM(quantity * unit_price),0) FROM sales WHERE currency='ZIG'").fetchone()[0]
         low_stock = self.db.execute("SELECT COUNT(*) FROM products WHERE quantity <= low_stock_threshold").fetchone()[0]
-        self.status.text = "Products: {} | Stock: {} | Low stock: {} | USD sales: {:.2f} | ZiG sales: {:.2f}".format(products, stock, low_stock, usd_sales, zig_sales)
+        customers = self.db.execute("SELECT COUNT(*) FROM customers").fetchone()[0]
+        summary = (
+            "BUSINESS OVERVIEW\\n"
+            "Products: {}     Units in stock: {}\\n"
+            "Low-stock items: {}     Customers: {}\\n"
+            "Sales recorded: USD {:.2f}  |  ZiG {:.2f}"
+        ).format(products, stock, low_stock, customers, usd_sales, zig_sales)
+        self.dashboard_summary.text = summary
+        self.status.text = "Dashboard updated. Your records remain on this device."
 
     def on_stop(self):
         if getattr(self, "db", None):
