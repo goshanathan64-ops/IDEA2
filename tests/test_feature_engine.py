@@ -1,6 +1,6 @@
 import unittest
 
-from feature_engine import analyze_blueprint, canonical_feature, repair_generated_source, split_requested_features, validate_feature_coverage, validate_generated_source
+from feature_engine import FEATURE_SOURCE_CHECKS, analyze_blueprint, canonical_feature, repair_generated_source, select_generated_features, split_requested_features, validate_feature_coverage, validate_generated_source
 
 
 class FeatureEngineTests(unittest.TestCase):
@@ -22,6 +22,13 @@ class FeatureEngineTests(unittest.TestCase):
         self.assertFalse(plan["ready"])
         self.assertEqual(plan["available"], [])
         self.assertEqual(len(plan["unsupported"]), 2)
+
+    def test_feature_selection_adds_dependencies_and_omits_unrequested_features(self):
+        selected = select_generated_features(["record_sales"])
+        self.assertEqual(selected, ["product_catalogue", "stock_tracking", "record_sales"])
+
+    def test_empty_feature_list_keeps_full_ready_template(self):
+        self.assertEqual(select_generated_features([]), list(FEATURE_SOURCE_CHECKS))
 
     def test_coverage_requires_all_source_fingerprints(self):
         source = "CREATE TABLE IF NOT EXISTS products def show_products quantity INTEGER def _save_sale quantity=quantity-?"
