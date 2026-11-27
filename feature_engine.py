@@ -365,6 +365,7 @@ def select_generated_features(requested_features):
 def validate_feature_coverage(source, requested_features, template_id="shop_inventory"):
     """Verify requested features against the selected template fingerprints."""
     implemented, missing = [], []
+    source = source if isinstance(source, str) else ""
     checks_by_feature = TEMPLATE_FEATURE_CHECKS.get(template_id, {})
     for feature in requested_features:
         checks = checks_by_feature.get(feature)
@@ -375,16 +376,13 @@ def validate_feature_coverage(source, requested_features, template_id="shop_inve
     return {"implemented": implemented, "missing": missing, "complete": not missing}
 
 
-def repair_generated_source(source, requested_features, regenerate_callback=None):
-    """Attempt one safe regeneration, then report verified and unresolved features."""
+def repair_generated_source(source, requested_features, regenerate_callback=None, template_id="shop_inventory"):
+    """Attempt one safe regeneration without accepting syntax or coverage regressions."""
     initial_validation = validate_generated_source(source)
-    initial_coverage = validate_feature_coverage(source, requested_features)
+    initial_coverage = validate_feature_coverage(source, requested_features, template_id)
     needs_repair = (not initial_validation["valid"]) or bool(initial_coverage["missing"])
-    result_source = source
-    validation = initial_validation
-    coverage = initial_coverage
-    attempted = False
-    repaired = False
+    result_source, validation, coverage = source, initial_validation, initial_coverage
+    attempted = repaired = False
     errors = []
 
     if needs_repair and callable(regenerate_callback):
@@ -392,20 +390,27 @@ def repair_generated_source(source, requested_features, regenerate_callback=None
         try:
             candidate = regenerate_callback()
             candidate_validation = validate_generated_source(candidate)
-            candidate_coverage = validate_feature_coverage(candidate, requested_features)
-            improves_coverage = (
-                len(candidate_coverage["implemented"]) >= len(initial_coverage["implemented"])
-                and len(candidate_coverage["missing"]) <= len(initial_coverage["missing"])
-            )
-            if candidate_validation["valid"] and (not initial_validation["valid"] or improves_coverage):
-                result_source = candidate
-                validation = candidate_validation
-                coverage = candidate_coverage
+            candidate_coverage = validate_feature_coverage(candidate, requested_features, template_id)
+            coverage_not_regressed = set(candidate_coverage["missing"]).issubset(set(initial_coverage["missing"]))
+            if candidate_validation["valid"] and coverage_not_regressed:
+                result_source, validation, coverage = candidate, candidate_validation, candidate_coverage
                 repaired = candidate != source
             else:
                 errors.extend(candidate_validation["errors"])
+                if not coverage_not_regressed:
+                    dropped = sorted(set(candidate_coverage["missing"]) - set(initial_coverage["missing"]))
+                    errors.append("Regeneration was rejected because it removed verified features: " + ", ".join(dropped))
         except Exception as error:
             errors.append("Regeneration failed: {}".format(error))
+
+    if not validation["valid"]:
+        status = "syntax_error"
+    elif coverage["missing"]:
+        status = "incomplete_features"
+    elif repaired:
+        status = "repaired"
+    else:
+        status = "valid"
 
     return {
         "source": result_source,
@@ -416,6 +421,13 @@ def repair_generated_source(source, requested_features, regenerate_callback=None
         "coverage": coverage,
         "unresolved": list(coverage["missing"]),
         "errors": errors,
+        "status": status,
+        "diagnostics": {
+            "syntax_errors": list(validation["errors"]),
+            "missing_features": list(coverage["missing"]),
+            "repair_errors": list(errors),
+            "repair_status": status,
+        },
     }
 
 
@@ -427,4 +439,7 @@ def validate_generated_source(source):
         ast.parse(source)
     except SyntaxError as error:
         return {"valid": False, "errors": ["Python syntax error at line {}: {}".format(error.lineno, error.msg)]}
+    except (TypeError, ValueError) as error:
+        return {"valid": False, "errors": ["Python source validation failed: {}".format(error)]}
     return {"valid": True, "errors": []}
+
