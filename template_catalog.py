@@ -98,6 +98,25 @@ TEMPLATES = [
 ]
 
 
+
+TEMPLATE_PLANNER_GUIDES = {
+    "shop_inventory": "SHOP FEATURES: products, stock tracking, sales, customers, expenses, low-stock alerts and USD/ZiG reports.",
+    "school_records": "SCHOOL FEATURES: student profiles, admission numbers, classes, daily attendance, subject marks and school summaries.",
+    "expense_tracker": "FINANCE FEATURES: income, expenses, categories, transaction history, USD/ZiG balances and reports.",
+    "booking_appointments": "BOOKING FEATURES: customer details, services, appointment date/time, duration, booking status and history.",
+    "task_manager": "TASK FEATURES: task title, description, category, due date, priority, completion status, search and summaries.",
+    "customer_manager": "CUSTOMER FEATURES: customer profiles, phone/email, address, notes, follow-up dates, follow-up status and search.",
+}
+
+
+def template_planner_guide(template_id):
+    """Return concise template-specific guidance for the Android planner form."""
+    return TEMPLATE_PLANNER_GUIDES.get(
+        template_id,
+        "Choose a ready template to see its recommended features."
+    )
+
+
 def list_templates():
     return [dict(item) for item in TEMPLATES]
 
