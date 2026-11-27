@@ -444,11 +444,15 @@ class IDEA2APK(App):
             self.review_feature_list.add_widget(row)
 
         summary = (
-            "SUPPORTED: " + (", ".join(analysis["available"]) or "None") +
+            "APP: " + str(data.get("name") or "Unnamed app") +
+            "\\nDESCRIPTION: " + str(data.get("description") or "Not provided") +
+            "\\nTARGET USERS: " + str(data.get("target") or "Not specified") +
+            "\\nTEMPLATE: " + analysis.get("template_id", "") +
+            "\\nSUPPORTED: " + (", ".join(analysis["available"]) or "None") +
             "\\nNOT READY: " + (", ".join(analysis["unsupported"]) or "None") +
             "\\nAdded items are checked by the same template support rules."
         )
-        self.blueprint_review_text.text = analysis.get("template_id", "") + "\\n" + summary
+        self.blueprint_review_text.text = summary
 
     def add_review_feature(self, *args):
         if not self.pending_blueprint_data:
@@ -532,6 +536,9 @@ class IDEA2APK(App):
             feature for feature, checkbox in self.review_feature_checks.items()
             if checkbox.active
         ]
+        if not selected:
+            self.message("Select at least one feature before generating the app.")
+            return
         self.pending_blueprint_data = apply_blueprint_feature_selection(
             self.pending_blueprint_data, selected
         )
