@@ -280,8 +280,8 @@ class GeneratedApp(App):
         if not rows:
             message = "No sales recorded yet."
         else:
-            message = "DATE | PRODUCT | QTY | UNIT PRICE | CURRENCY | TOTAL | CUSTOMER\\n"
-            message += "\\n".join(
+            message = "DATE | PRODUCT | QTY | UNIT PRICE | CURRENCY | TOTAL | CUSTOMER\n"
+            message += "\n".join(
                 "{} | {} | {} | {:.2f} | {} | {:.2f} | {}".format(*row)
                 for row in rows
             )
@@ -298,8 +298,8 @@ class GeneratedApp(App):
         if not rows:
             message = "No products need restocking."
         else:
-            message = "PRODUCT | LEFT IN STOCK | ALERT LEVEL | CURRENCY\\n"
-            message += "\\n".join(
+            message = "PRODUCT | LEFT IN STOCK | ALERT LEVEL | CURRENCY\n"
+            message += "\n".join(
                 "{} | {} | {} | {}".format(*row)
                 for row in rows
             )
