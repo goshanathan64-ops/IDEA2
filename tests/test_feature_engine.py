@@ -1,6 +1,6 @@
 import unittest
 
-from feature_engine import FEATURE_SOURCE_CHECKS, analyze_blueprint, canonical_feature, repair_generated_source, select_generated_features, split_requested_features, validate_feature_coverage, validate_generated_source
+from feature_engine import FEATURE_SOURCE_CHECKS, analyze_blueprint, canonical_feature, prepare_blueprint_review, repair_generated_source, select_generated_features, split_requested_features, validate_feature_coverage, validate_generated_source
 
 
 class FeatureEngineTests(unittest.TestCase):
@@ -76,6 +76,35 @@ class FeatureEngineTests(unittest.TestCase):
         })
         self.assertEqual(unknown["inferred"], [])
         self.assertEqual(unknown["unsupported"], [])
+
+    def test_blueprint_review_contains_plan_and_approved_inferred_features(self):
+        review = prepare_blueprint_review({
+            "template_id": "shop_inventory",
+            "name": "Village Shop",
+            "description": "Products, stock and sales with USD/ZiG reports.",
+            "target": "Tuckshop owners",
+            "app_type": "Business",
+            "features": "Record sales",
+        })
+        self.assertIn("BLUEPRINT REVIEW", review["text"])
+        self.assertIn("Tuckshop owners", review["text"])
+        self.assertIn("FEATURES INFERRED FROM DESCRIPTION", review["text"])
+        self.assertEqual(
+            review["data"]["features"],
+            "record_sales, product_catalogue, stock_tracking, basic_reports, currency_support",
+        )
+        self.assertEqual(review["analysis"]["explicit"], ["record_sales"])
+
+    def test_blueprint_review_keeps_unsupported_features_visible(self):
+        review = prepare_blueprint_review({
+            "template_id": "customer_manager",
+            "name": "Customer Hub",
+            "description": "Customer profiles and bulk SMS campaigns",
+            "features": "WhatsApp automation",
+        })
+        self.assertIn("bulk_sms_campaigns", review["analysis"]["unsupported"])
+        self.assertIn("whatsapp_automation", review["analysis"]["unsupported"])
+        self.assertIn("NOT SUPPORTED YET", review["text"])
 
     def test_blueprint_explains_each_feature_status(self):
         plan = analyze_blueprint({
