@@ -9,7 +9,7 @@ import re
 import sqlite3
 from datetime import datetime
 
-from feature_engine import analyze_blueprint, validate_generated_source
+from feature_engine import analyze_blueprint, validate_feature_coverage, validate_generated_source
 
 
 def generate_app_code(data):
@@ -719,19 +719,18 @@ if __name__ == "__main__":
         .replace("__APP_DESCRIPTION__", json.dumps(description))
     )
 
-    # Keep the analysis visible in exported source so users can see which
-    # requested features the current offline template does not yet implement.
+    # Verify actual generated source, not just the template catalogue.
     plan = analyze_blueprint(data)
+    coverage = validate_feature_coverage(generated, plan["requested"])
     report = [
         "",
-        "# IDEA2APK V3 BLUEPRINT ANALYSIS",
-        "# Supported by this template: " + (
-            ", ".join(plan["supported"]) or "none"
-        ),
-        "# Not yet generated: " + (
-            ", ".join(plan["unsupported"]) or "none"
-        ),
-        "# This report is informational; unsupported features are not implemented.",
+        "# IDEA2APK V3 BLUEPRINT VERIFICATION",
+        "# Requested: " + (", ".join(plan["requested"]) or "none"),
+        "# Actually generated and verified: " + (", ".join(coverage["implemented"]) or "none"),
+        "# Missing from generated code: " + (", ".join(coverage["missing"]) or "none"),
+        "# Unsupported by selected template: " + (", ".join(plan["unsupported"]) or "none"),
+        "# Completion: " + ("COMPLETE" if coverage["complete"] else "PARTIAL - review missing features"),
+        "# Source checks are deterministic fingerprints, not a substitute for device testing.",
         "",
     ]
     generated += "\n".join(report)
