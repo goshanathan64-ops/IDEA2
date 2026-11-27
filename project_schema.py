@@ -20,7 +20,10 @@ def normalize_project(project):
 
     result["schema_version"] = SCHEMA_VERSION
     result.setdefault("category", result.get("app_type", "business") or "business")
+    # Legacy V2 projects did not store a template; preserve their safe Shop default.
     result.setdefault("template_id", "shop_inventory")
+    if not str(result.get("template_id") or "").strip():
+        result["template_id"] = "shop_inventory"
     result.setdefault("build_status", "not_built")
     return result
 
