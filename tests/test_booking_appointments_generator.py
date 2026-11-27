@@ -136,7 +136,7 @@ class BookingAppointmentsGeneratorTests(unittest.TestCase):
         )
         self.assertIn('"booking_records"', source)
         self.assertIn('"appointment_scheduling"', source)
-        self.assertIn('"customer_details"', source)
+        self.assertIn("customer_details", source)
         self.assertIn('"booking_history"', source)
         self.assertIn("# Unsupported by selected template: automatic_reminders", source)
         coverage = validate_feature_coverage(
