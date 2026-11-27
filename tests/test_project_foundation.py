@@ -1,7 +1,7 @@
 import unittest
 
 from project_schema import normalize_project, validate_project
-from template_catalog import blueprint_support_report, get_template, list_templates, template_support_report
+from template_catalog import blueprint_support_report, get_template, list_templates, template_planner_guide, template_support_report
 
 
 class ProjectSchemaTests(unittest.TestCase):
@@ -60,6 +60,20 @@ class ProjectSchemaTests(unittest.TestCase):
         self.assertEqual(get_template("booking_appointments")["status"], "ready")
         self.assertEqual(get_template("task_manager")["status"], "ready")
         self.assertEqual(get_template("customer_manager")["status"], "ready")
+
+    def test_each_ready_template_has_specific_planner_guidance(self):
+        expected_terms = {
+            "shop_inventory": "stock",
+            "school_records": "attendance",
+            "expense_tracker": "income",
+            "booking_appointments": "appointment",
+            "task_manager": "priority",
+            "customer_manager": "follow-up",
+        }
+        for template_id, term in expected_terms.items():
+            guide = template_planner_guide(template_id).lower()
+            self.assertIn(term, guide)
+        self.assertIn("Choose a ready template", template_planner_guide("future_template"))
 
     def test_support_report_does_not_claim_unknown_features(self):
         report = template_support_report(
