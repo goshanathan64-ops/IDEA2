@@ -769,11 +769,12 @@ if __name__ == "__main__":
     )
     generated = repair["source"]
     coverage = validate_feature_coverage(generated, selected_features, template_id=template_id)
+    consistency = verify_generated_feature_consistency(generated, selected_features, template_id=template_id)
     validation = validate_generated_source(generated)
     if not validation["valid"]:
         raise ValueError("; ".join(validation["errors"]))
 
-    complete = coverage["complete"] and not plan["unsupported"] and validation["valid"]
+    complete = consistency["consistent"] and coverage["complete"] and not plan["unsupported"] and validation["valid"]
     report = [
         "",
         "# IDEA2APK V3 BLUEPRINT VERIFICATION",
