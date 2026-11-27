@@ -601,6 +601,16 @@ class GeneratedApp(App):
             or os.path.realpath(supplied_directory) != supplied_directory
         ):
             raise ValueError("Symbolic-link backups cannot be restored.")
+        try:
+            directory_stat = os.stat(directory)
+            candidate_stat = os.stat(supplied_path)
+        except OSError as error:
+            raise ValueError("The selected backup is unavailable.") from error
+        if (
+            directory_stat.st_dev != candidate_stat.st_dev
+            or not os.path.isfile(supplied_path)
+        ):
+            raise ValueError("The selected backup is not a regular local file.")
         candidate = os.path.realpath(supplied_path)
         if os.path.dirname(candidate) != directory:
             raise ValueError("Choose a backup from this app's local backup folder.")

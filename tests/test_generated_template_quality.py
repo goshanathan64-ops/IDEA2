@@ -613,5 +613,22 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
             self.assertTrue(os.path.isfile(real_backup))
         app.db.close()
 
+    def test_shop_restore_rejects_fifo_or_non_regular_backup_entry(self):
+        app = self.load_app("shop_inventory", "Reject Non Regular Backup")
+        with tempfile.TemporaryDirectory() as backup_root:
+            app.user_data_dir = backup_root
+            directory = os.path.join(backup_root, "backups")
+            os.makedirs(directory)
+            fifo_path = os.path.join(directory, "my_shop_fifo.db")
+            if not hasattr(os, "mkfifo"):
+                self.skipTest("FIFO entries are not supported in this environment.")
+            try:
+                os.mkfifo(fifo_path)
+            except (OSError, NotImplementedError):
+                self.skipTest("FIFO entries cannot be created in this environment.")
+            with self.assertRaisesRegex(ValueError, "regular local file"):
+                app._restore_backup(fifo_path)
+        app.db.close()
+
 if __name__ == "__main__":
     unittest.main()
