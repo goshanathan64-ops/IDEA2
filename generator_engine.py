@@ -379,12 +379,20 @@ class GeneratedApp(App):
             result = connection.execute("PRAGMA quick_check").fetchone()
             if not result or result[0] != "ok":
                 return False
-            tables = {
-                row[0] for row in connection.execute(
-                    "SELECT name FROM sqlite_master WHERE type='table'"
-                ).fetchall()
+            required_columns = {
+                "products": {"id", "name", "quantity", "selling_price", "currency"},
+                "customers": {"id", "name", "phone"},
+                "sales": {"id", "product_id", "quantity", "unit_price", "currency"},
+                "expenses": {"id", "description", "amount", "currency"},
             }
-            return "products" in tables
+            for table, expected in required_columns.items():
+                rows = connection.execute(
+                    "PRAGMA table_info({})".format(table)
+                ).fetchall()
+                actual = {row[1] for row in rows}
+                if not expected.issubset(actual):
+                    return False
+            return True
         except sqlite3.DatabaseError:
             return False
         finally:

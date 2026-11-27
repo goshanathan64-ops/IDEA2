@@ -288,6 +288,26 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
         app.db.close()
 
 
+    def test_shop_restore_rejects_backup_missing_required_tables(self):
+        app = self.load_app("shop_inventory", "Incomplete Backup")
+        with tempfile.TemporaryDirectory() as backup_root:
+            app.user_data_dir = backup_root
+            directory = os.path.join(backup_root, "backups")
+            os.makedirs(directory)
+            incomplete_path = os.path.join(directory, "my_shop_incomplete.db")
+            connection = sqlite3.connect(incomplete_path)
+            try:
+                connection.execute(
+                    "CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT, quantity INTEGER, selling_price REAL, currency TEXT)"
+                )
+                connection.commit()
+            finally:
+                connection.close()
+            with self.assertRaisesRegex(ValueError, "No valid backup"):
+                app._restore_latest_backup()
+        app.db.close()
+
+
     def test_shop_restore_without_backup_returns_clear_error(self):
         app = self.load_app("shop_inventory", "Empty Backup Test")
         with tempfile.TemporaryDirectory() as backup_root:
