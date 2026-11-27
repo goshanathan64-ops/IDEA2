@@ -70,6 +70,29 @@ def analyze_blueprint(data):
     }
 
 
+FEATURE_DEPENDENCIES = {
+    "stock_tracking": ("product_catalogue",),
+    "record_sales": ("product_catalogue", "stock_tracking"),
+}
+
+
+def select_generated_features(requested_features):
+    """Expand required dependencies and default to the complete ready template."""
+    requested = list(dict.fromkeys(requested_features or []))
+    if not requested:
+        return list(FEATURE_SOURCE_CHECKS)
+    selected = list(requested)
+    changed = True
+    while changed:
+        changed = False
+        for feature in list(selected):
+            for dependency in FEATURE_DEPENDENCIES.get(feature, ()):
+                if dependency not in selected:
+                    selected.append(dependency)
+                    changed = True
+    return [feature for feature in FEATURE_SOURCE_CHECKS if feature in selected]
+
+
 def validate_feature_coverage(source, requested_features):
     """Verify requested features by checking their implementation fingerprints."""
     implemented, missing = [], []
