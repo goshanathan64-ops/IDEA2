@@ -22,6 +22,7 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.label import Label
 from kivy.uix.button import Button
+from kivy.uix.checkbox import CheckBox
 from kivy.uix.textinput import TextInput
 from kivy.uix.popup import Popup
 
@@ -365,29 +366,111 @@ class IDEA2APK(App):
         root = BoxLayout(
             orientation="vertical",
             padding=dp(10),
-            spacing=dp(8)
+            spacing=dp(6)
         )
-        root.add_widget(self.make_label("REVIEW YOUR APP BLUEPRINT", 48, 20))
+        root.add_widget(self.make_label("REVIEW & SELECT APP FEATURES", 42, 19))
         self.blueprint_review_text = TextInput(
             readonly=True,
             multiline=True,
-            font_size=sp(14),
-            size_hint_y=1
+            font_size=sp(12),
+            size_hint_y=None,
+            height=dp(175)
         )
         root.add_widget(self.blueprint_review_text)
+
+        root.add_widget(self.make_label(
+            "Tick the features you want included. Untick anything you do not need.",
+            42, 12
+        ))
+        feature_scroll = ScrollView(size_hint_y=1)
+        self.review_feature_list = BoxLayout(
+            orientation="vertical", spacing=dp(3), size_hint_y=None
+        )
+        self.review_feature_list.bind(
+            minimum_height=self.review_feature_list.setter("height")
+        )
+        feature_scroll.add_widget(self.review_feature_list)
+        root.add_widget(feature_scroll)
+
+        add_row = BoxLayout(
+            orientation="horizontal", size_hint_y=None, height=dp(46), spacing=dp(5)
+        )
+        self.extra_feature_input = TextInput(
+            hint_text="Add another feature",
+            multiline=False, font_size=sp(13)
+        )
+        add_row.add_widget(self.extra_feature_input)
+        add_row.add_widget(self.make_button("ADD", self.add_review_feature, 42))
+        root.add_widget(add_row)
+
         root.add_widget(self.make_button(
-            "APPROVE PLAN & GENERATE CODE",
+            "APPROVE SELECTED FEATURES & GENERATE",
             self.approve_blueprint
         ))
         root.add_widget(self.make_button(
-            "EDIT BLUEPRINT",
-            self.edit_blueprint_from_review
+            "EDIT BLUEPRINT", self.edit_blueprint_from_review
         ))
         root.add_widget(self.make_button(
-            "CANCEL REVIEW",
-            self.cancel_blueprint_review
+            "CANCEL REVIEW", self.cancel_blueprint_review
         ))
+        self.review_feature_checks = {}
         self.blueprint_review_screen.add_widget(root)
+
+    def refresh_review_feature_list(self, selected_features=None):
+        from feature_engine import analyze_blueprint
+        self.review_feature_list.clear_widgets()
+        data = dict(self.pending_blueprint_data or {})
+        analysis = analyze_blueprint(data)
+        features = analysis["requested"]
+        selected = set(features if selected_features is None else selected_features)
+        self.review_feature_checks = {}
+        for feature in features:
+            status = "SUPPORTED" if feature in analysis["available"] else "NOT READY"
+            row = BoxLayout(
+                orientation="horizontal", size_hint_y=None, height=dp(42), spacing=dp(6)
+            )
+            check = CheckBox(
+                active=feature in selected,
+                size_hint_x=None, width=dp(44)
+            )
+            self.review_feature_checks[feature] = check
+            label = Label(
+                text=feature + "  [" + status + "]",
+                font_size=sp(12), halign="left", valign="middle"
+            )
+            label.bind(size=lambda widget, size: setattr(widget, "text_size", size))
+            row.add_widget(check)
+            row.add_widget(label)
+            self.review_feature_list.add_widget(row)
+
+        summary = (
+            "SUPPORTED: " + (", ".join(analysis["available"]) or "None") +
+            "\\nNOT READY: " + (", ".join(analysis["unsupported"]) or "None") +
+            "\\nAdded items are checked by the same template support rules."
+        )
+        self.blueprint_review_text.text = analysis.get("template_id", "") + "\\n" + summary
+
+    def add_review_feature(self, *args):
+        if not self.pending_blueprint_data:
+            return
+        from feature_engine import canonical_feature
+        raw = self.extra_feature_input.text.strip()
+        if not raw:
+            self.message("Enter a feature name first.")
+            return
+        feature = canonical_feature(raw)
+        selected = [
+            name for name, checkbox in self.review_feature_checks.items()
+            if checkbox.active
+        ]
+        if feature not in self.review_feature_checks:
+            selected.append(feature)
+        else:
+            selected = list(dict.fromkeys(selected + [feature]))
+        self.pending_blueprint_data["features"] = ", ".join(selected)
+        self.extra_feature_input.text = ""
+        self.refresh_review_feature_list(selected)
+
 
     # PROJECT DATA
 
@@ -434,6 +517,7 @@ class IDEA2APK(App):
             self.pending_blueprint_data = review["data"]
             self.current_project = data
             self.blueprint_review_text.text = review["text"]
+            self.refresh_review_feature_list(review["analysis"]["requested"])
             self.manager.current = "blueprint_review"
         except Exception as error:
             self.message("Blueprint review failed:\\n" + str(error))
@@ -442,7 +526,15 @@ class IDEA2APK(App):
         if not self.pending_blueprint_data:
             self.message("Create a blueprint review before approving.")
             return
-        # The approved feature list includes explicit requests and description hints.
+        # Apply the user's checkbox choices; unsupported requests stay visible for diagnostics.
+        from feature_engine import apply_blueprint_feature_selection
+        selected = [
+            feature for feature, checkbox in self.review_feature_checks.items()
+            if checkbox.active
+        ]
+        self.pending_blueprint_data = apply_blueprint_feature_selection(
+            self.pending_blueprint_data, selected
+        )
         self.current_project = dict(self.pending_blueprint_data)
         self.generate_app_code(use_approved=True)
 
