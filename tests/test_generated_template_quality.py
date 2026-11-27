@@ -642,6 +642,27 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
             self.assertEqual(row[0], 7)
         app.db.close()
 
+    def test_shop_restore_does_not_commit_unrelated_pending_transaction(self):
+        app = self.load_app("shop_inventory", "Restore Pending Transaction Safety")
+        with tempfile.TemporaryDirectory() as backup_root:
+            app.user_data_dir = backup_root
+            directory = os.path.join(backup_root, "backups")
+            os.makedirs(directory)
+            selected_backup = app._create_backup_file()
+            app.db.execute(
+                "INSERT INTO products (name, quantity, selling_price, currency) VALUES (?, ?, ?, ?)",
+                ("Pending item", 4, 3.0, "USD"),
+            )
+            self.assertTrue(app.db.in_transaction)
+            app._restore_backup(selected_backup)
+            self.assertFalse(app.db.in_transaction)
+            self.assertIsNone(
+                app.db.execute(
+                    "SELECT id FROM products WHERE name = ?", ("Pending item",)
+                ).fetchone()
+            )
+        app.db.close()
+
     def test_shop_restore_reenables_foreign_key_enforcement(self):
         app = self.load_app("shop_inventory", "Restore Foreign Key Enforcement")
         with tempfile.TemporaryDirectory() as backup_root:
