@@ -16,6 +16,7 @@ from threading import Thread
 from github_builder import upload_and_dispatch
 from project_schema import normalize_project, validate_project
 from template_catalog import get_template, list_templates
+from blueprint_intelligence import analyze_blueprint_intelligence, render_blueprint_intelligence_summary
 
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.uix.boxlayout import BoxLayout
@@ -377,6 +378,8 @@ class IDEA2APK(App):
             height=dp(175)
         )
         root.add_widget(self.blueprint_review_text)
+        self.blueprint_intelligence_label = self.make_label("BLUEPRINT INTELLIGENCE: Awaiting analysis", 92, 12)
+        root.add_widget(self.blueprint_intelligence_label)
 
         root.add_widget(self.make_label(
             "Tick the features you want included. Untick anything you do not need.",
@@ -459,6 +462,8 @@ class IDEA2APK(App):
             "\\nAdded items are checked by the same template support rules."
         )
         self.blueprint_review_text.text = summary
+        intelligence = analyze_blueprint_intelligence(data, analysis)
+        self.blueprint_intelligence_label.text = render_blueprint_intelligence_summary(intelligence)
         self.refresh_dependency_preview()
 
     def refresh_dependency_preview(self, *args):

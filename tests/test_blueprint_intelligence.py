@@ -1,5 +1,5 @@
 import unittest
-from blueprint_intelligence import analyze_blueprint_intelligence
+from blueprint_intelligence import analyze_blueprint_intelligence, render_blueprint_intelligence_summary
 
 class BlueprintIntelligenceTests(unittest.TestCase):
     def test_complete_blueprint_is_high_confidence(self):
@@ -35,5 +35,12 @@ class BlueprintIntelligenceTests(unittest.TestCase):
         report = analyze_blueprint_intelligence({"name":"New App","description":"A new app","target":"Users","template_id":"future_template"},{"unsupported":[],"ready":False})
         self.assertTrue(any(i["type"]=="unknown_template" for i in report["issues"]))
         self.assertTrue(report["ready_for_review"])
+
+    def test_summary_format_includes_score_and_recommendation(self):
+        report = analyze_blueprint_intelligence({"name":"My App"})
+        rendered = render_blueprint_intelligence_summary(report)
+        self.assertIn("20% COMPLETE", rendered)
+        self.assertIn("LOW CONFIDENCE", rendered)
+        self.assertIn("SUGGESTION:", rendered)
 
 if __name__ == "__main__": unittest.main()

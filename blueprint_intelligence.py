@@ -5,7 +5,7 @@ CORE_FIELDS = ("name", "description", "target", "template_id")
 FIELD_LABELS = {"name": "App name", "description": "App description", "target": "Target users", "template_id": "App template"}
 
 def _clean(value):
-    return re.sub(r"\\s+", " ", str(value or "")).strip()
+    return re.sub(r"\s+", " ", str(value or "")).strip()
 
 def analyze_blueprint_intelligence(data, feature_analysis=None):
     """Return completeness, confidence, missing info, issues, and suggestions."""
@@ -36,3 +36,22 @@ def analyze_blueprint_intelligence(data, feature_analysis=None):
     completeness = sum(weight for field, weight in weights.items() if field not in missing)
     confidence = "HIGH" if completeness >= 90 and not any(i["severity"] == "error" for i in issues) else "MEDIUM" if completeness >= 60 else "LOW"
     return {"completeness":completeness,"confidence":confidence,"missing_fields":missing,"missing_labels":[FIELD_LABELS[f] for f in missing],"issues":issues,"recommendations":list(dict.fromkeys(recommendations)),"warnings":warnings,"ready_for_review":True,"note":"Offline advisory analysis; not a substitute for feature checks, APK builds, or device testing."}
+
+
+def render_blueprint_intelligence_summary(report):
+    """Format intelligence findings for the mobile blueprint-review panel."""
+    report = report or {}
+    lines = [
+        "BLUEPRINT INTELLIGENCE — {}% COMPLETE / {} CONFIDENCE".format(
+            report.get("completeness", 0), report.get("confidence", "LOW")
+        ),
+    ]
+    missing = report.get("missing_labels", [])
+    lines.append("MISSING: " + (", ".join(missing) if missing else "None"))
+    for issue in report.get("issues", []):
+        lines.append("{}: {}".format(issue.get("severity", "info").upper(), issue.get("message", "Review note")))
+    for warning in report.get("warnings", []):
+        lines.append("NOTE: " + warning)
+    for suggestion in report.get("recommendations", []):
+        lines.append("SUGGESTION: " + suggestion)
+    return "\n".join(lines)
