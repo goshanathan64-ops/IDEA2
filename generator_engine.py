@@ -9,7 +9,7 @@ import re
 import sqlite3
 from datetime import datetime
 
-from feature_engine import analyze_blueprint, validate_feature_coverage, validate_generated_source
+from feature_engine import analyze_blueprint, repair_generated_source, validate_feature_coverage, validate_generated_source
 
 
 def generate_app_code(data):
@@ -719,9 +719,23 @@ if __name__ == "__main__":
         .replace("__APP_DESCRIPTION__", json.dumps(description))
     )
 
-    # Verify actual generated source, not just the template catalogue.
+    # Retry generation once if supported features are missing or source is invalid.
     plan = analyze_blueprint(data)
+    repair = repair_generated_source(
+        generated,
+        plan["available"],
+        regenerate_callback=lambda: (
+            template
+            .replace("__APP_TITLE__", json.dumps(safe_title))
+            .replace("__APP_DESCRIPTION__", json.dumps(description))
+        ),
+    )
+    generated = repair["source"]
     coverage = validate_feature_coverage(generated, plan["requested"])
+    validation = validate_generated_source(generated)
+    if not validation["valid"]:
+        raise ValueError("; ".join(validation["errors"]))
+
     report = [
         "",
         "# IDEA2APK V3 BLUEPRINT VERIFICATION",
@@ -729,12 +743,13 @@ if __name__ == "__main__":
         "# Actually generated and verified: " + (", ".join(coverage["implemented"]) or "none"),
         "# Missing from generated code: " + (", ".join(coverage["missing"]) or "none"),
         "# Unsupported by selected template: " + (", ".join(plan["unsupported"]) or "none"),
+        "# Automatic repair attempted: " + ("YES" if repair["attempted"] else "NO"),
+        "# Automatic repair changed source: " + ("YES" if repair["repaired"] else "NO"),
+        "# Repair attempts: " + str(repair["attempts"]),
+        "# Unresolved supported features: " + (", ".join(repair["unresolved"]) or "none"),
         "# Completion: " + ("COMPLETE" if coverage["complete"] else "PARTIAL - review missing features"),
         "# Source checks are deterministic fingerprints, not a substitute for device testing.",
         "",
     ]
     generated += "\n".join(report)
-    validation = validate_generated_source(generated)
-    if not validation["valid"]:
-        raise ValueError("; ".join(validation["errors"]))
     return generated
