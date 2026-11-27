@@ -322,6 +322,19 @@ def prepare_blueprint_review(data):
     return {"analysis": analysis, "data": approved_data, "text": "\\n".join(lines)}
 
 
+
+def apply_blueprint_feature_selection(data, selected_features):
+    """Return blueprint data containing only the features explicitly checked by the user."""
+    data = dict(data or {})
+    selected = []
+    for item in selected_features or []:
+        feature = canonical_feature(item)
+        if feature and feature not in selected:
+            selected.append(feature)
+    data["features"] = ", ".join(selected)
+    return data
+
+
 FEATURE_DEPENDENCIES = {
     "stock_tracking": ("product_catalogue",),
     "record_sales": ("product_catalogue", "stock_tracking"),
