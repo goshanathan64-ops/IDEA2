@@ -6,7 +6,8 @@ on:
       - feature/self-generating-engine-v3
     paths:
       - "feature_engine.py"
-      - "generator_engine.py"\n      - "expense_tracker_generator.py"
+      - "generator_engine.py"
+      - "expense_tracker_generator.py"
       - "tests/**"
       - ".github/workflows/v3-tests-only.yml"
   workflow_dispatch:
