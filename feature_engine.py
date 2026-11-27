@@ -5,7 +5,8 @@ import re
 ALIASES = {
     "income": "income_records", "income records": "income_records", "record income": "income_records",
     "transaction history": "transaction_history", "history": "transaction_history",
-    "categories": "category_tracking", "category tracking": "category_tracking",\n    "products": "product_catalogue", "product catalogue": "product_catalogue",
+    "categories": "category_tracking", "category tracking": "category_tracking",
+    "products": "product_catalogue", "product catalogue": "product_catalogue",
     "product catalog": "product_catalogue", "inventory": "stock_tracking",
     "stock": "stock_tracking", "stock management": "stock_tracking",
     "sales": "record_sales", "record sale": "record_sales",
