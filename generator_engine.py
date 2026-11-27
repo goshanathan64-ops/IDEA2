@@ -21,6 +21,9 @@ def generate_app_code(data):
     if template_id == "school_records":
         from school_records_generator import generate_school_records_code
         return generate_school_records_code(data)
+    if template_id == "booking_appointments":
+        from booking_appointments_generator import generate_booking_code
+        return generate_booking_code(data)
     if template_id != "shop_inventory":
         raise ValueError("The selected template is not ready to generate apps yet: " + template_id)
 
