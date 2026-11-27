@@ -1,6 +1,6 @@
 import unittest
 
-from feature_engine import FEATURE_SOURCE_CHECKS, analyze_blueprint, canonical_feature, prepare_blueprint_review, apply_blueprint_feature_selection, preview_feature_dependencies, repair_generated_source, select_generated_features, split_requested_features, validate_feature_coverage, validate_generated_source
+from feature_engine import FEATURE_SOURCE_CHECKS, analyze_blueprint, canonical_feature, prepare_blueprint_review, apply_blueprint_feature_selection, preview_feature_dependencies, repair_generated_source, select_generated_features, split_requested_features, validate_feature_coverage, validate_generated_source, verify_generated_feature_consistency
 
 
 class FeatureEngineTests(unittest.TestCase):
