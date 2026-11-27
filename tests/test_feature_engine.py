@@ -34,7 +34,7 @@ class FeatureEngineTests(unittest.TestCase):
         calls = []
         def regenerate():
             calls.append(True)
-            return "CREATE TABLE IF NOT EXISTS products\\ndef show_products"
+            return "# CREATE TABLE IF NOT EXISTS products\ndef show_products():\n    pass"
         result = repair_generated_source(
             "incomplete source", ["product_catalogue"], regenerate
         )
@@ -59,7 +59,7 @@ class FeatureEngineTests(unittest.TestCase):
 
     def test_repair_does_not_call_regenerator_when_source_is_complete(self):
         calls = []
-        source = "CREATE TABLE IF NOT EXISTS products\\ndef show_products"
+        source = "# CREATE TABLE IF NOT EXISTS products\ndef show_products():\n    pass"
         result = repair_generated_source(
             source, ["product_catalogue"], lambda: calls.append(True)
         )
