@@ -287,6 +287,39 @@ def analyze_blueprint(data):
     }
 
 
+def prepare_blueprint_review(data):
+    """Prepare a readable review and the exact feature list approved for generation."""
+    data = dict(data or {})
+    analysis = analyze_blueprint(data)
+    approved_data = dict(data)
+    approved_data["features"] = ", ".join(analysis["requested"])
+    lines = [
+        "BLUEPRINT REVIEW",
+        "",
+        "APP NAME: " + str(data.get("name") or "Unnamed app"),
+        "DESCRIPTION: " + str(data.get("description") or "Not provided"),
+        "TARGET USERS: " + str(data.get("target") or "Not specified"),
+        "APP TYPE: " + str(data.get("app_type") or "Not specified"),
+        "TEMPLATE: " + analysis["template_id"],
+        "",
+        "FEATURES YOU ENTERED:",
+        ", ".join(analysis["explicit"]) or "None entered",
+        "",
+        "FEATURES INFERRED FROM DESCRIPTION:",
+        ", ".join(analysis["inferred"]) or "None inferred",
+        "",
+        "SUPPORTED FEATURES:",
+        ", ".join(analysis["available"]) or "None confirmed",
+        "",
+        "NOT SUPPORTED YET:",
+        ", ".join(analysis["unsupported"]) or "None identified",
+        "",
+        "Review the inferred features and unsupported items before approving.",
+        "Only approve if this plan matches the app you want.",
+    ]
+    return {"analysis": analysis, "data": approved_data, "text": "\\n".join(lines)}
+
+
 FEATURE_DEPENDENCIES = {
     "stock_tracking": ("product_catalogue",),
     "record_sales": ("product_catalogue", "stock_tracking"),
