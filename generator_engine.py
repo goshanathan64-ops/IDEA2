@@ -312,7 +312,7 @@ class GeneratedApp(App):
             "IMPORTANT: Old sales have unknown costs. Their profit is incomplete; "
             "do not treat the figures as final accounting profit."
         )
-        self.popup_message("Business Reports", "\\n".join(lines))
+        self.popup_message("Business Reports", "\n".join(lines))
 
     def show_dashboard(self, *_args):
         products = self.db.execute("SELECT COUNT(*) FROM products").fetchone()[0]
