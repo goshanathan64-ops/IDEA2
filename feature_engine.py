@@ -5,8 +5,8 @@ import re
 ALIASES = {
     "tasks": "task_records", "task": "task_records", "task records": "task_records",
     "create tasks": "task_records", "add tasks": "task_records",
-    "deadlines": "due_dates", "due dates": "due_dates", "task deadlines": "due_dates",
-    "priorities": "priority_levels", "task priorities": "priority_levels",
+    "deadlines": "due_dates", "due date": "due_dates", "due dates": "due_dates", "task deadlines": "due_dates",
+    "priority": "priority_levels", "priorities": "priority_levels", "task priorities": "priority_levels",
     "high medium low priority": "priority_levels",
     "completion": "completion_tracking", "completion tracking": "completion_tracking",
     "mark tasks complete": "completion_tracking", "task completion": "completion_tracking",
