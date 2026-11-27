@@ -614,6 +614,24 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
         app.db.close()
 
 
+
+    def test_shop_restore_rejects_unreadable_backup_file(self):
+        app = self.load_app("shop_inventory", "Reject Unreadable Backup")
+        with tempfile.TemporaryDirectory() as backup_root:
+            app.user_data_dir = backup_root
+            directory = os.path.join(backup_root, "backups")
+            os.makedirs(directory)
+            backup_path = app._create_backup_file()
+            original_access = os.access
+            try:
+                os.access = lambda path, mode: False if path == backup_path and mode == os.R_OK else original_access(path, mode)
+                with self.assertRaisesRegex(ValueError, "not readable"):
+                    app._restore_backup(backup_path)
+            finally:
+                os.access = original_access
+            self.assertTrue(app._is_valid_backup_file(backup_path))
+        app.db.close()
+
     def test_shop_restore_rejects_hard_linked_backup_entry(self):
         app = self.load_app("shop_inventory", "Reject Hard-linked Backup")
         with tempfile.TemporaryDirectory() as backup_root:
