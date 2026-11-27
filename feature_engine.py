@@ -3,6 +3,11 @@ import ast
 import re
 
 ALIASES = {
+    "students": "student_records", "student records": "student_records", "student profiles": "student_records",
+    "classes": "class_management", "class management": "class_management", "class records": "class_management",
+    "attendance": "attendance_tracking", "attendance tracking": "attendance_tracking",
+    "student attendance": "attendance_tracking", "exam results": "results_records",
+    "student results": "results_records", "marks": "results_records", "results": "results_records",
     "income": "income_records", "income records": "income_records", "record income": "income_records",
     "transaction history": "transaction_history", "history": "transaction_history",
     "categories": "category_tracking", "category tracking": "category_tracking",
@@ -46,9 +51,19 @@ EXPENSE_TRACKER_SOURCE_CHECKS = {
     "transaction_history": ("def _get_history", "def show_history"),
 }
 
+SCHOOL_RECORDS_SOURCE_CHECKS = {
+    "student_records": ("CREATE TABLE IF NOT EXISTS students", "def _save_student", "def _get_students"),
+    "class_management": ("class_name TEXT", "SELECT COUNT(DISTINCT class_name)"),
+    "attendance_tracking": ("CREATE TABLE IF NOT EXISTS attendance", "def _record_attendance", "def _get_attendance"),
+    "results_records": ("CREATE TABLE IF NOT EXISTS results", "def _save_result", "def _get_results"),
+    "basic_reports": ("def _get_school_summary", "def show_school_summary"),
+    "local_sqlite_storage": ("sqlite3.connect", "self.user_data_dir"),
+}
+
 TEMPLATE_FEATURE_CHECKS = {
     "shop_inventory": FEATURE_SOURCE_CHECKS,
     "expense_tracker": EXPENSE_TRACKER_SOURCE_CHECKS,
+    "school_records": SCHOOL_RECORDS_SOURCE_CHECKS,
 }
 
 
