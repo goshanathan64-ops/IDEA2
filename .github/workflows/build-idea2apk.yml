@@ -10,6 +10,7 @@ on:
       - "project_schema.py"
       - "template_catalog.py"
       - "generator_engine.py"
+      - "expense_tracker_generator.py"
       - "github_builder.py"
       - "auto_fixer.py"
       - "buildozer.spec"
@@ -64,7 +65,7 @@ jobs:
 
       - name: Validate Python source and run tests
         run: |
-          python -m compileall -q main.py project_schema.py template_catalog.py feature_engine.py generator_engine.py github_builder.py auto_fixer.py
+          python -m compileall -q main.py project_schema.py template_catalog.py feature_engine.py generator_engine.py expense_tracker_generator.py github_builder.py auto_fixer.py
           python -m unittest discover -s tests -v
 
       - name: Build APK with automatic repair
