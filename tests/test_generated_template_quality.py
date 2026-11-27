@@ -881,3 +881,49 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_shop_restore_rejects_incomplete_selected_backup_without_changing_current_data(self):
+        app = self.load_app("shop_inventory", "Incomplete Selected Backup Safety")
+        with tempfile.TemporaryDirectory() as backup_root:
+            app.user_data_dir = backup_root
+            directory = os.path.join(backup_root, "backups")
+            os.makedirs(directory)
+            app.db.execute(
+                "INSERT INTO products (name, quantity, selling_price, currency) VALUES (?, ?, ?, ?)",
+                ("Current safe stock", 13, 6.0, "USD"),
+            )
+            app.db.commit()
+            incomplete_path = os.path.join(directory, "my_shop_incomplete_selected.db")
+            connection = sqlite3.connect(incomplete_path)
+            try:
+                connection.execute(
+                    "CREATE TABLE products (id INTEGER PRIMARY KEY, name TEXT, quantity INTEGER, selling_price REAL, currency TEXT)"
+                )
+                connection.execute(
+                    "INSERT INTO products (name, quantity, selling_price, currency) VALUES (?, ?, ?, ?)",
+                    ("Partial backup", 1, 1.0, "USD"),
+                )
+                connection.commit()
+            finally:
+                connection.close()
+
+            before = sorted(os.listdir(directory))
+            with self.assertRaisesRegex(ValueError, "invalid or incomplete"):
+                app._restore_backup(incomplete_path)
+
+            self.assertEqual(
+                app.db.execute(
+                    "SELECT quantity FROM products WHERE name = ?",
+                    ("Current safe stock",),
+                ).fetchone()[0],
+                13,
+            )
+            self.assertIsNone(
+                app.db.execute(
+                    "SELECT id FROM products WHERE name = ?",
+                    ("Partial backup",),
+                ).fetchone()
+            )
+            self.assertEqual(sorted(os.listdir(directory)), before)
+        app.db.close()
+
