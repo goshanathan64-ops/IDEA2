@@ -352,7 +352,7 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
         })
         self.assertIn("Choose a backup to restore", source)
         self.assertIn("confirm_restore_selected_backup", source)
-        self.assertIn("disabled=not item[\\"valid\\"]", source)
+        self.assertIn('disabled=not item["valid"]', source)
         self.assertIn("Current data will first be backed up.", source)
 
     def test_shop_restore_selected_backup_restores_that_version_and_preserves_current(self):
