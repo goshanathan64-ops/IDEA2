@@ -395,12 +395,15 @@ class GeneratedApp(App):
             return
         valid_count = sum(1 for item in inventory if item["valid"])
         invalid_count = len(inventory) - valid_count
+        total_bytes = sum(item["size_bytes"] for item in inventory)
+        total_mb = total_bytes / (1024.0 * 1024.0)
         body = BoxLayout(orientation="vertical", padding=dp(10), spacing=dp(6))
         summary = Label(
-            text="{} valid backup(s) available | {} invalid backup(s) blocked".format(
-                valid_count, invalid_count
-            ),
-            size_hint_y=None, height=dp(42), halign="center"
+            text="{} valid backup(s) available | {} invalid backup(s) blocked\\n"
+                 "Total backup storage: {:.2f} MB".format(
+                     valid_count, invalid_count, total_mb
+                 ),
+            size_hint_y=None, height=dp(58), halign="center"
         )
         body.add_widget(summary)
         scroll = ScrollView()
