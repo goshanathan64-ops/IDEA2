@@ -120,8 +120,8 @@ class TemplateOutputQualityTests(unittest.TestCase):
 
 
     def test_all_templates_preserve_special_blueprint_text_as_safe_literals(self):
-        name = "Gosha's "NexGen" — 未来"
-        description = "Line one\\nLine two; literal payload: __import__('os').system('echo unsafe')"
+        name = """Gosha's "NexGen" — 未来"""
+        description = "Line one\nLine two; literal payload: __import__('os').system('echo unsafe')"
         for template_id in TEMPLATE_CASES:
             with self.subTest(template=template_id):
                 source = generate_app_code({
@@ -134,7 +134,14 @@ class TemplateOutputQualityTests(unittest.TestCase):
                 details = inspect_generated_app(source)
                 self.assertEqual(details["title"], name)
                 self.assertEqual(details["description"], description)
-                self.assertNotIn("echo unsafe", source.split("APP_DESCRIPTION =", 1)[1].splitlines()[0])
+                tree = ast.parse(source)
+                injected_imports = [
+                    node for node in ast.walk(tree)
+                    if isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Name)
+                    and node.func.id == "__import__"
+                ]
+                self.assertEqual(injected_imports, [])
 
     def test_unknown_template_never_falls_back_to_an_unrelated_app(self):
         with self.assertRaisesRegex(ValueError, "not ready to generate"):
