@@ -119,7 +119,7 @@ class ExpenseTrackerGeneratorTests(unittest.TestCase):
     def test_unready_school_template_stays_rejected(self):
         with self.assertRaisesRegex(ValueError, "not ready to generate"):
             generate_app_code({
-                "template_id": "customer_manager",
+                "template_id": "future_template",
                 "name": "School Records",
                 "features": "students, attendance",
             })
