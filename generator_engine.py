@@ -4,7 +4,10 @@ Generates a functional SQLite-backed shop-management starter app.
 The generated app uses Kivy and Python's standard-library sqlite3 module.
 """
 import json
+import os
 import re
+import sqlite3
+from datetime import datetime
 
 from feature_engine import analyze_blueprint, validate_generated_source
 
@@ -51,12 +54,16 @@ class GeneratedApp(App):
             ("Dashboard", self.show_dashboard),
             ("Products / Inventory", self.show_products),
             ("Add Product", self.add_product),
+            ("Edit Product", self.edit_product),
+            ("Delete Product", self.delete_product),
             ("Record Sale", self.record_sale),
             ("Sales History", self.show_sales_history),
             ("Low Stock", self.show_low_stock),
             ("Customers", self.add_customer),
             ("Expenses", self.add_expense),
             ("Reports", self.show_reports),
+            ("Create Backup", self.create_backup),
+            ("Restore Latest Backup", self.confirm_restore_backup),
         ]
         for caption, callback in actions:
             button = Button(text=caption, size_hint_y=None, height=dp(46))
@@ -201,6 +208,143 @@ class GeneratedApp(App):
             ("quantity", "Opening stock quantity"),
             ("low_stock_threshold", "Low-stock alert quantity (e.g. 5)")
         ], save)
+
+    def _update_product(self, values):
+        name = values["name"].strip()
+        cost_price = float(values["cost_price"])
+        selling_price = float(values["selling_price"])
+        currency = values["currency"].strip().upper()
+        threshold = int(values["low_stock_threshold"])
+        if not name or min(cost_price, selling_price, threshold) < 0:
+            raise ValueError("Enter a product name and non-negative prices and alert level.")
+        if currency not in ("USD", "ZIG"):
+            raise ValueError("Currency must be USD or ZiG.")
+        cursor = self.db.execute(
+            "UPDATE products SET cost_price=?, selling_price=?, price=?, currency=?, "
+            "low_stock_threshold=? WHERE name=? COLLATE NOCASE",
+            (cost_price, selling_price, selling_price, currency, threshold, name)
+        )
+        if cursor.rowcount != 1:
+            raise ValueError("Product not found. Check the exact product name.")
+        self.db.commit()
+
+    def edit_product(self, *_args):
+        def save(values):
+            self._update_product(values)
+            self.show_products()
+        self.open_form("Edit Product (stock is preserved)", [
+            ("name", "Exact existing product name"),
+            ("cost_price", "New cost price"),
+            ("selling_price", "New selling price"),
+            ("currency", "Currency: USD or ZIG"),
+            ("low_stock_threshold", "Low-stock alert quantity")
+        ], save)
+
+    def _delete_product(self, name):
+        name = name.strip()
+        if not name:
+            raise ValueError("Enter a product name.")
+        self.db.execute("BEGIN IMMEDIATE")
+        try:
+            row = self.db.execute(
+                "SELECT id FROM products WHERE name=? COLLATE NOCASE", (name,)
+            ).fetchone()
+            if row is None:
+                raise ValueError("Product not found.")
+            sale_count = self.db.execute(
+                "SELECT COUNT(*) FROM sales WHERE product_id=?", (row[0],)
+            ).fetchone()[0]
+            if sale_count:
+                raise ValueError(
+                    "This product has sales history and cannot be deleted. "
+                    "Keep the record and set its stock to zero instead."
+                )
+            self.db.execute("DELETE FROM products WHERE id=?", (row[0],))
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+
+    def delete_product(self, *_args):
+        def save(values):
+            self._delete_product(values["name"])
+            self.show_products()
+        self.open_form("Delete Product (no sales history)", [
+            ("name", "Exact product name to delete")
+        ], save)
+
+    def _backup_directory(self):
+        directory = os.path.join(self.user_data_dir, "backups")
+        os.makedirs(directory, exist_ok=True)
+        return directory
+
+    def _create_backup_file(self):
+        self.db.commit()
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        path = os.path.join(self._backup_directory(), "my_shop_{}.db".format(stamp))
+        destination = sqlite3.connect(path)
+        try:
+            self.db.backup(destination)
+        finally:
+            destination.close()
+        return path
+
+    def create_backup(self, *_args):
+        path = self._create_backup_file()
+        self.status.text = "Backup saved inside the app's private storage."
+        self.popup_message(
+            "Backup created",
+            "Your shop database has been backed up safely on this device.\\n\\n"
+            "Backup filename: " + os.path.basename(path) + "\\n"
+            "For protection if the phone is lost, copy backups outside the app when an export option is added."
+        )
+
+    def _restore_latest_backup(self):
+        directory = self._backup_directory()
+        backups = [
+            os.path.join(directory, filename)
+            for filename in os.listdir(directory)
+            if filename.startswith("my_shop_") and filename.endswith(".db")
+        ]
+        if not backups:
+            raise ValueError("No backup is available on this device.")
+        latest = max(backups, key=os.path.getmtime)
+        # Preserve the current database before replacing it.
+        self._create_backup_file()
+        source = sqlite3.connect(latest)
+        try:
+            source.backup(self.db)
+            self.db.execute("PRAGMA foreign_keys = ON")
+            self.db.commit()
+        finally:
+            source.close()
+        return latest
+
+    def confirm_restore_backup(self, *_args):
+        body = BoxLayout(orientation="vertical", padding=dp(12), spacing=dp(8))
+        body.add_widget(Label(
+            text="Restore the newest local backup? Current data will first be backed up.",
+            halign="center"
+        ))
+        buttons = BoxLayout(size_hint_y=None, height=dp(46), spacing=dp(8))
+        confirm = Button(text="RESTORE")
+        cancel = Button(text="CANCEL")
+        buttons.add_widget(confirm)
+        buttons.add_widget(cancel)
+        body.add_widget(buttons)
+        popup = Popup(title="Confirm database restore", content=body, size_hint=(0.9, 0.42))
+        def do_restore(_button):
+            try:
+                restored = self._restore_latest_backup()
+                popup.dismiss()
+                self.status.text = "Restored latest local backup."
+                self.popup_message("Restore complete", "Restored from: " + os.path.basename(restored))
+                self.show_dashboard()
+            except Exception as error:
+                self.popup_message("Restore failed", str(error))
+        confirm.bind(on_release=do_restore)
+        cancel.bind(on_release=popup.dismiss)
+        popup.open()
 
     def show_products(self, *_args):
         rows = self.db.execute(
