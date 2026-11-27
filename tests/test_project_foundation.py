@@ -1,7 +1,7 @@
 import unittest
 
 from project_schema import normalize_project, validate_project
-from template_catalog import get_template, list_templates, template_support_report
+from template_catalog import blueprint_support_report, get_template, list_templates, template_support_report
 
 
 class ProjectSchemaTests(unittest.TestCase):
@@ -43,6 +43,28 @@ class ProjectSchemaTests(unittest.TestCase):
         )
         self.assertEqual(report["supported"], ["product_catalogue"])
         self.assertEqual(report["unsupported"], ["online_payments"])
+
+    def test_blueprint_support_report_is_template_specific(self):
+        report = blueprint_support_report({
+            "template_id": "expense_tracker",
+            "features": "income, expenses, transaction history, budgets",
+        })
+        self.assertEqual(report["template_name"], "Expense Tracker")
+        self.assertEqual(report["readiness"], "READY")
+        self.assertEqual(
+            report["supported"],
+            ["income_records", "expense_records", "transaction_history"]
+        )
+        self.assertEqual(report["unsupported"], ["budgets"])
+
+    def test_blueprint_report_marks_planned_template_not_ready(self):
+        report = blueprint_support_report({
+            "template_id": "school_records",
+            "features": "student records, attendance",
+        })
+        self.assertEqual(report["readiness"], "NOT READY")
+        self.assertEqual(report["supported"], [])
+        self.assertEqual(report["unsupported"], ["student_records", "attendance"])
 
 
 if __name__ == "__main__":
