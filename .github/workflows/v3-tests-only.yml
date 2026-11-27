@@ -9,7 +9,7 @@ on:
       - "generator_engine.py"
       - "expense_tracker_generator.py"
       - "school_records_generator.py"
-      - "booking_appointments_generator.py"
+      - "booking_appointments_generator.py task_manager_generator.py"
       - "main.py"
       - "template_catalog.py"
       - ".github/workflows/build-idea2apk.yml"
