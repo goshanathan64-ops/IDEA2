@@ -15,7 +15,7 @@ from threading import Thread
 
 from github_builder import upload_and_dispatch
 from project_schema import normalize_project, validate_project
-from template_catalog import list_templates
+from template_catalog import get_template, list_templates
 
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.uix.boxlayout import BoxLayout
@@ -432,10 +432,10 @@ class IDEA2APK(App):
             self.current_project = data
             self.result_text.text = code
             self.manager.current = "result"
-            template_name = (
-                "Expense Tracker" if data.get("template_id") == "expense_tracker"
-                else "Shop & Inventory"
-            )
+            self.selected_template_id = data.get("template_id", "shop_inventory")
+            template = get_template(self.selected_template_id)
+            template_name = template["name"] if template else self.selected_template_id
+            self.refresh_template_status()
             self.message(
                 "Generated using the " + template_name + " template. "
                 "The source includes a blueprint verification report showing "
@@ -456,7 +456,15 @@ class IDEA2APK(App):
                     "r",
                     encoding="utf-8"
                 ) as file:
-                    return json.load(file)
+                    saved = json.load(file)
+                    if not isinstance(saved, list):
+                        return []
+                    # Upgrade older saved projects in memory while preserving their fields.
+                    return [
+                        normalize_project(project)
+                        for project in saved
+                        if isinstance(project, dict)
+                    ]
         except Exception:
             pass
 
@@ -549,6 +557,8 @@ class IDEA2APK(App):
             self.project_list.add_widget(row)
 
     def edit_project(self, project):
+        # Normalize old V2 records so their template choice is always explicit.
+        project = normalize_project(project)
         self.current_project = project
         self.selected_template_id = project.get("template_id", "shop_inventory")
         self.refresh_template_status()
