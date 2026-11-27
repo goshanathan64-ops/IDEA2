@@ -316,6 +316,12 @@ class IDEA2APK(App):
             )
         )
 
+        self.generated_quality_label = self.make_label(
+            "CODE QUALITY: Waiting for generation audit",
+            74, 12
+        )
+        root.add_widget(self.generated_quality_label)
+
         self.result_text = TextInput(
             readonly=True,
             multiline=True,
@@ -619,8 +625,47 @@ class IDEA2APK(App):
 
         try:
             from generator_engine import generate_app_code
+            from feature_engine import (
+                analyze_blueprint, analyze_generated_app_quality,
+                validate_generated_source, validate_feature_coverage,
+                verify_generated_feature_consistency,
+            )
 
             code = generate_app_code(data)
+            template_id = str(data.get("template_id") or "shop_inventory")
+            blueprint_analysis = analyze_blueprint(data)
+            expected_features = blueprint_analysis["requested"]
+            syntax = validate_generated_source(code)
+            coverage = validate_feature_coverage(code, expected_features, template_id)
+            consistency = verify_generated_feature_consistency(
+                code, expected_features, template_id=template_id
+            )
+            quality = analyze_generated_app_quality(
+                code, syntax, coverage, consistency, blueprint=data
+            )
+            if hasattr(self, "generated_quality_label"):
+                self.generated_quality_label.text = (
+                    "CODE QUALITY: {}/100 — {}\\n".format(
+                        quality["score"], quality["grade"]
+                    ) +
+                    "Checks passed: {}/{}\\n".format(
+                        len(quality["passed"]), len(quality["checks"])
+                    ) +
+                    ("Warnings: " + "; ".join(quality["warnings"])
+                     if quality["warnings"] else "No static quality warnings.") +
+                    ("\\nAndroid device testing is still required."
+                     if syntax["valid"] else
+                     "\\nGeneration stopped: Python syntax is invalid.")
+                )
+            if not syntax["valid"]:
+                self.generated_code = ""
+                self.message(
+                    "Generated code failed Python syntax validation. "
+                    "It cannot be exported or built until repaired: " +
+                    "; ".join(syntax["errors"])
+                )
+                return
+
             self.generated_code = code
             self.current_project = data
             self.pending_blueprint_data = None

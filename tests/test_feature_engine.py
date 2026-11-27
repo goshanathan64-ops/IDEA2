@@ -370,6 +370,18 @@ class FeatureEngineTests(unittest.TestCase):
         self.assertFalse(result["repair"]["attempted"])
         self.assertEqual(calls, [])
 
+    def test_quality_audit_marks_invalid_syntax_and_missing_coverage(self):
+        from feature_engine import analyze_generated_app_quality
+        result = analyze_generated_app_quality(
+            "def broken(:",
+            {"valid": False},
+            {"complete": False},
+            {"consistent": False},
+        )
+        self.assertEqual(result["grade"], "WEAK")
+        self.assertIn("python_syntax", result["failed"])
+        self.assertIn("feature_coverage", result["failed"])
+
     def test_generated_app_quality_audit_reports_score_and_missing_checks(self):
         from feature_engine import analyze_generated_app_quality
         validation = {"valid": True}
