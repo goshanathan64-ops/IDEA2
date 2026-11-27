@@ -294,6 +294,7 @@ class GeneratedApp(App):
         for currency in ("USD", "ZIG"):
             sales = self.db.execute(
                 "SELECT COALESCE(SUM(quantity * unit_price),0), "
+                "COALESCE(SUM(CASE WHEN cost_known=1 THEN quantity * unit_price ELSE 0 END),0), "
                 "COALESCE(SUM(CASE WHEN cost_known=1 THEN quantity * unit_cost ELSE 0 END),0), "
                 "COALESCE(SUM(CASE WHEN cost_known=0 THEN 1 ELSE 0 END),0), COUNT(*) "
                 "FROM sales WHERE currency=?", (currency,)
@@ -301,15 +302,16 @@ class GeneratedApp(App):
             expenses = self.db.execute(
                 "SELECT COALESCE(SUM(amount),0) FROM expenses WHERE currency=?", (currency,)
             ).fetchone()[0]
-            revenue, known_cost, unknown_cost_sales, sale_count = sales
-            gross_profit = revenue - known_cost
+            revenue, known_revenue, known_cost, unknown_cost_sales, sale_count = sales
+            gross_profit = known_revenue - known_cost
             net_profit = gross_profit - expenses
             lines.extend([
                 "{} SUMMARY".format(currency),
                 "Sales transactions: {}".format(sale_count),
                 "Sales revenue: {:.2f}".format(revenue),
+                "Revenue from sales with known costs: {:.2f}".format(known_revenue),
                 "Known cost of goods sold: {:.2f}".format(known_cost),
-                "Gross profit on recorded costs: {:.2f}".format(gross_profit),
+                "Gross profit on sales with known costs: {:.2f}".format(gross_profit),
                 "Expenses: {:.2f}".format(expenses),
                 "Net result on recorded costs: {:.2f}".format(net_profit),
                 "Sales with unknown historical cost: {}".format(unknown_cost_sales), ""
