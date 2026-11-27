@@ -378,11 +378,16 @@ class GeneratedApp(App):
             path = os.path.join(directory, filename)
             try:
                 size = os.path.getsize(path)
+                created_at = datetime.fromtimestamp(
+                    os.path.getmtime(path)
+                ).strftime("%Y-%m-%d %H:%M")
             except OSError:
                 size = 0
+                created_at = "Date unavailable"
             inventory.append({
                 "path": path,
                 "filename": filename,
+                "created_at": created_at,
                 "valid": self._is_valid_backup_file(path),
                 "size_bytes": size,
             })
@@ -412,8 +417,8 @@ class GeneratedApp(App):
         for item in inventory:
             status = "VALID" if item["valid"] else "INVALID - cannot restore"
             size_kb = item["size_bytes"] / 1024.0
-            caption = "{} | {:.1f} KB | {}".format(
-                item["filename"], size_kb, status
+            caption = "{}\\n{} | {:.1f} KB | {}".format(
+                item["filename"], item["created_at"], size_kb, status
             )
             choice = Button(
                 text=caption, size_hint_y=None, height=dp(58),

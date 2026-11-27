@@ -355,6 +355,7 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
         self.assertIn("invalid backup(s) blocked", source)
         self.assertIn("Total backup storage:", source)
         self.assertIn("total_mb", source)
+        self.assertIn('item["created_at"]', source)
         self.assertIn("confirm_restore_selected_backup", source)
         self.assertIn('disabled=not item["valid"]', source)
         self.assertIn("Current data will first be backed up.", source)
@@ -460,6 +461,7 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
             self.assertFalse(inventory[0]["valid"])
             self.assertTrue(inventory[1]["valid"])
             self.assertEqual(inventory[1]["path"], valid_path)
+            self.assertTrue(inventory[1]["created_at"])
             self.assertGreater(inventory[1]["size_bytes"], 0)
         app.db.close()
 
