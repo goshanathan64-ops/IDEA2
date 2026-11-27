@@ -38,6 +38,45 @@ class FeatureEngineTests(unittest.TestCase):
             ["task_records", "due_dates", "priority_levels", "completion_tracking"],
         )
 
+    def test_description_infers_features_without_overwriting_explicit_requests(self):
+        plan = analyze_blueprint({
+            "template_id": "shop_inventory",
+            "name": "Village Shop",
+            "description": "A small store for products, stock, sales and USD/ZiG reports.",
+            "features": "record sales",
+        })
+        self.assertEqual(plan["explicit"], ["record_sales"])
+        self.assertEqual(
+            plan["inferred"],
+            ["product_catalogue", "stock_tracking", "currency_support", "basic_reports"],
+        )
+        self.assertEqual(
+            plan["requested"],
+            ["record_sales", "product_catalogue", "stock_tracking", "currency_support", "basic_reports"],
+        )
+        self.assertEqual(
+            [item["source"] for item in plan["feature_status"]],
+            ["features", "description", "description", "description", "description"],
+        )
+
+    def test_description_inference_is_limited_to_selected_template(self):
+        school = analyze_blueprint({
+            "template_id": "school_records",
+            "description": "Manage students, attendance, classes and exam marks.",
+            "features": "",
+        })
+        self.assertEqual(
+            school["inferred"],
+            ["student_records", "attendance_tracking", "class_management", "results_records"],
+        )
+        unknown = analyze_blueprint({
+            "template_id": "future_template",
+            "description": "Manage students and attendance.",
+            "features": "",
+        })
+        self.assertEqual(unknown["inferred"], [])
+        self.assertEqual(unknown["unsupported"], [])
+
     def test_blueprint_explains_each_feature_status(self):
         plan = analyze_blueprint({
             "template_id": "customer_manager",
