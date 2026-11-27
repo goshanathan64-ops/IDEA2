@@ -611,6 +611,8 @@ class GeneratedApp(App):
             or not os.path.isfile(supplied_path)
         ):
             raise ValueError("The selected backup is not a regular local file.")
+        if candidate_stat.st_nlink != 1:
+            raise ValueError("Hard-linked backup files cannot be restored.")
         candidate = os.path.realpath(supplied_path)
         if os.path.dirname(candidate) != directory:
             raise ValueError("Choose a backup from this app's local backup folder.")

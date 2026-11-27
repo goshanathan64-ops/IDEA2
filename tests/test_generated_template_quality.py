@@ -613,6 +613,24 @@ class GeneratedTemplateQualityTests(unittest.TestCase):
             self.assertTrue(os.path.isfile(real_backup))
         app.db.close()
 
+
+    def test_shop_restore_rejects_hard_linked_backup_entry(self):
+        app = self.load_app("shop_inventory", "Reject Hard-linked Backup")
+        with tempfile.TemporaryDirectory() as backup_root:
+            app.user_data_dir = backup_root
+            directory = os.path.join(backup_root, "backups")
+            os.makedirs(directory)
+            real_backup = app._create_backup_file()
+            alias_path = os.path.join(directory, "my_shop_hardlink.db")
+            try:
+                os.link(real_backup, alias_path)
+            except (OSError, NotImplementedError):
+                self.skipTest("Hard links are not supported in this environment.")
+            with self.assertRaisesRegex(ValueError, "Hard-linked backup files"):
+                app._restore_backup(alias_path)
+            self.assertTrue(app._is_valid_backup_file(real_backup))
+        app.db.close()
+
     def test_shop_restore_rejects_fifo_or_non_regular_backup_entry(self):
         app = self.load_app("shop_inventory", "Reject Non Regular Backup")
         with tempfile.TemporaryDirectory() as backup_root:
