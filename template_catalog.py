@@ -84,10 +84,16 @@ TEMPLATES = [
         "id": "customer_manager",
         "name": "Customer Manager",
         "category": "business",
-        "status": "planned",
-        "description": "Customer profiles, contact details and follow-ups.",
-        "supported_features": [],
-        "unsupported_features": [],
+        "status": "ready",
+        "description": "Offline customer profiles, phone and email contacts, notes, searchable records and follow-up tracking.",
+        "supported_features": [
+            "customer_profiles", "contact_details", "customer_notes", "follow_up_records",
+            "follow_up_tracking", "customer_search", "basic_reports", "local_sqlite_storage"
+        ],
+        "unsupported_features": [
+            "bulk_sms", "whatsapp_automation", "email_campaigns",
+            "cloud_sync", "multi_user_login", "online_customer_portal"
+        ],
     },
 ]
 
