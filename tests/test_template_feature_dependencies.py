@@ -1,7 +1,9 @@
 """Tests for dependency expansion across independent generated app templates."""
+import ast
 import unittest
 
 from feature_engine import expand_template_features
+from generator_engine import generate_app_code
 
 
 class TemplateFeatureDependencyTests(unittest.TestCase):
@@ -62,6 +64,31 @@ class TemplateFeatureDependencyTests(unittest.TestCase):
             expand_template_features("task_manager", ["unknown", "due_dates"], available),
             ["task_records", "due_dates"],
         )
+
+    def test_each_generator_includes_required_workflow_dependencies(self):
+        cases = [
+            ("expense_tracker", "category_tracking", {"income_records", "expense_records", "category_tracking"}),
+            ("school_records", "attendance_tracking", {"student_records", "attendance_tracking"}),
+            ("booking_appointments", "appointment_scheduling", {"booking_records", "appointment_scheduling"}),
+            ("task_manager", "due_dates", {"task_records", "due_dates"}),
+            ("customer_manager", "follow_up_records", {"customer_profiles", "follow_up_records"}),
+        ]
+        for template_id, feature, expected in cases:
+            with self.subTest(template=template_id):
+                source = generate_app_code({
+                    "template_id": template_id,
+                    "name": "Dependency Test",
+                    "description": "Verify required parent workflows",
+                    "features": feature,
+                })
+                module = ast.parse(source)
+                enabled = next(
+                    ast.literal_eval(node.value)
+                    for node in module.body
+                    if isinstance(node, ast.Assign)
+                    and any(isinstance(target, ast.Name) and target.id == "ENABLED_FEATURES" for target in node.targets)
+                )
+                self.assertTrue(expected.issubset(set(enabled)), (template_id, enabled))
 
 
 if __name__ == "__main__":
