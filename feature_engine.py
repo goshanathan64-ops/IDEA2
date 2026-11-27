@@ -33,6 +33,22 @@ FEATURE_SOURCE_CHECKS = {
     "profit_loss_reports": ("gross_profit", "net_result_known_costs"),
 }
 
+EXPENSE_TRACKER_SOURCE_CHECKS = {
+    "income_records": ("def add_income", "self._save_transaction('income', values)"),
+    "expense_records": ("def add_expense", "self._save_transaction('expense', values)"),
+    "category_tracking": ("category TEXT", '"category"'),
+    "currency_support": ('"USD"', '"ZIG"', "currency TEXT"),
+    "basic_reports": ("def _get_summary", "def show_summary"),
+    "local_sqlite_storage": ("sqlite3.connect", "self.user_data_dir"),
+    "transaction_history": ("def _get_history", "def show_history"),
+}
+
+TEMPLATE_FEATURE_CHECKS = {
+    "shop_inventory": FEATURE_SOURCE_CHECKS,
+    "expense_tracker": EXPENSE_TRACKER_SOURCE_CHECKS,
+}
+
+
 
 def split_requested_features(value):
     """Accept comma/newline/bullet/semicolon-separated blueprint features."""
@@ -93,11 +109,12 @@ def select_generated_features(requested_features):
     return [feature for feature in FEATURE_SOURCE_CHECKS if feature in selected]
 
 
-def validate_feature_coverage(source, requested_features):
-    """Verify requested features by checking their implementation fingerprints."""
+def validate_feature_coverage(source, requested_features, template_id="shop_inventory"):
+    """Verify requested features against the selected template fingerprints."""
     implemented, missing = [], []
+    checks_by_feature = TEMPLATE_FEATURE_CHECKS.get(template_id, {})
     for feature in requested_features:
-        checks = FEATURE_SOURCE_CHECKS.get(feature)
+        checks = checks_by_feature.get(feature)
         if checks and all(check in source for check in checks):
             implemented.append(feature)
         else:
