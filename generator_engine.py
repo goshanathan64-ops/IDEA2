@@ -24,6 +24,9 @@ def generate_app_code(data):
     if template_id == "booking_appointments":
         from booking_appointments_generator import generate_booking_code
         return generate_booking_code(data)
+    if template_id == "task_manager":
+        from task_manager_generator import generate_task_manager_code
+        return generate_task_manager_code(data)
     if template_id != "shop_inventory":
         raise ValueError("The selected template is not ready to generate apps yet: " + template_id)
 
