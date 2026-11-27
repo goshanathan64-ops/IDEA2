@@ -18,6 +18,9 @@ def generate_app_code(data):
     if template_id == "expense_tracker":
         from expense_tracker_generator import generate_expense_tracker_code
         return generate_expense_tracker_code(data)
+    if template_id == "school_records":
+        from school_records_generator import generate_school_records_code
+        return generate_school_records_code(data)
     if template_id != "shop_inventory":
         raise ValueError("The selected template is not ready to generate apps yet: " + template_id)
 
